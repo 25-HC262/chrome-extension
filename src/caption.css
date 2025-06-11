@@ -11,3 +11,20 @@
     z-index: 9999;
     font-family: sans-serif;
 }
+
+#caption-script {
+  position: fixed;
+  bottom: 10px;
+  right: 10px;
+  width: 300px;
+  height: 200px;
+  overflow: auto;
+  background-color: rgba(0, 0, 0, 0.7);
+  color: #fff;
+  padding: 10px;
+  font-size: 14px;
+  border-radius: 8px;
+  z-index: 9999;
+  resize: both;
+  box-sizing: border-box;
+}

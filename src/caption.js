@@ -15,12 +15,94 @@ function updateCaption(text) {
   if (captionDiv) {
     captionDiv.textContent = text;
   }
+
+  captionScript.push(text);
+  updateCaptionScript();
 }
+
+// Save caption script
+function createCaptionScriptBox() {
+  const existing = document.getElementById('caption-cript');
+  if (existing) return;
+
+  const captionScriptDiv = document.createElement('div');
+  captionScriptDiv.id = 'caption-cript'; 
+  captionScriptDiv.textContent = '이것은 테스트 자막 스크립트 입니다.';
+  document.body.appendChild(captionScriptDiv);
+}
+
+
+  let captionScript = [];
+// Update caption script content
+function updateCaptionScript() {
+  const captionScriptDiv = document.getElementById('caption-cript');
+  captionScriptDiv.style.position = 'fixed';
+  captionScriptDiv.style.bottom = '10px';
+  captionScriptDiv.style.left = '10px';
+  captionScriptDiv.style.width = '300px';
+  captionScriptDiv.style.height = '200px';
+  captionScriptDiv.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+  captionScriptDiv.style.color = 'white';
+  captionScriptDiv.style.padding = '10px';
+  captionScriptDiv.style.zIndex = '999999';
+  captionScriptDiv.style.overflow = 'auto';
+  captionScriptDiv.style.resize = 'both';
+  captionScriptDiv.style.boxSizing = 'border-box';
+  captionScriptDiv.style.fontSize = '16px';
+  captionScriptDiv.style.border = '2px solid yellow';
+
+  if (captionScriptDiv) {
+    captionScriptDiv.innerHTML = captionScript.map(line => `<div>${line}</div>`).join('');;
+  }
+}
+
+function addUserSelectButton() {
+  const menu = document.querySelector('div.pw1uU');
+  if (!menu) return;
+
+  if (menu.querySelector('.userSelect'))
+    return;
+
+  const refItem = menu.querySelector('div[role="menuitem"]');
+
+  const newItem = document.createElement('div');
+  newItem.className = 'my-custom-option';
+  newItem.setAttribute('role', 'menuitem');
+  newItem.textContent = '사용자 정의 동작';
+  newItem.style.cursor = 'pointer';
+  newItem.style.padding = '10px';
+  newItem.style.color = '#fff';
+  newItem.style.fontSize = '14px';
+  newItem.style.backgroundColor = '#3c4043';
+  newItem.style.borderTop = '1px solid #555';
+
+  if (refItem) {
+    newItem.className = refItem.className;
+    newItem.style.cssText = refItem.style.cssText;
+  }
+
+  newItem.addEventListener('click', (e) => {
+    e.stopPropagation();
+    console.log('유저 선택됨');
+  });
+
+  menu.appendChild(newItem);
+}
+
+const observer = new MutationObserver(() => {
+  addUserSelectButton();
+});
+
+observer.observe(document.body, {
+  childList: true,
+  subtree: true,
+});
 
 if (window.location.href.includes('landing')) {
   console.log("Main page : caption is not displayed");
 } else {  
   createCaption();
+  createCaptionScriptBox();
 
   let captions = ["안녕하세요", "this is test caption"];
   let i = 0;

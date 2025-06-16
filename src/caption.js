@@ -22,11 +22,11 @@ function updateCaption(text) {
 
 // Save caption script
 function createCaptionScriptBox() {
-  const existing = document.getElementById('caption-cript');
+  const existing = document.getElementById('caption-script');
   if (existing) return;
 
   const captionScriptDiv = document.createElement('div');
-  captionScriptDiv.id = 'caption-cript'; 
+  captionScriptDiv.id = 'caption-script'; 
   captionScriptDiv.textContent = '이것은 테스트 자막 스크립트 입니다.';
   document.body.appendChild(captionScriptDiv);
 }
@@ -35,22 +35,7 @@ function createCaptionScriptBox() {
   let captionScript = [];
 // Update caption script content
 function updateCaptionScript() {
-  const captionScriptDiv = document.getElementById('caption-cript');
-  captionScriptDiv.style.position = 'fixed';
-  captionScriptDiv.style.bottom = '10px';
-  captionScriptDiv.style.left = '10px';
-  captionScriptDiv.style.width = '300px';
-  captionScriptDiv.style.height = '200px';
-  captionScriptDiv.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
-  captionScriptDiv.style.color = 'white';
-  captionScriptDiv.style.padding = '10px';
-  captionScriptDiv.style.zIndex = '999999';
-  captionScriptDiv.style.overflow = 'auto';
-  captionScriptDiv.style.resize = 'both';
-  captionScriptDiv.style.boxSizing = 'border-box';
-  captionScriptDiv.style.fontSize = '16px';
-  captionScriptDiv.style.border = '2px solid yellow';
-
+  const captionScriptDiv = document.getElementById('caption-script');
   if (captionScriptDiv) {
     captionScriptDiv.innerHTML = captionScript.map(line => `<div>${line}</div>`).join('');;
   }
@@ -60,7 +45,7 @@ function addUserSelectButton() {
   const menu = document.querySelector('div.pw1uU');
   if (!menu) return;
 
-  if (menu.querySelector('.userSelect'))
+  if (menu.querySelector('.my-custom-option'))
     return;
 
   const refItem = menu.querySelector('div[role="menuitem"]');

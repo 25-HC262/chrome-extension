@@ -7,13 +7,21 @@
     "content_scripts": [
         {
             "matches": ["https://meet.google.com/*"],
-            "js": ["./src/caption.js"],
-            "css": ["./src/caption.css"],
+            "js": [
+                "./src/js/video.js",
+                "./src/js/caption.js"
+            ],
+            "css": [
+                "./src/css/video.css",
+                "./src/css/caption.css"
+            ],
             "run_at" : "document_idle"
         }
     ],
     "permissions": [
         "activeTab",
-        "scripting"
+        "scripting",
+        "desktopCapture",
+        "storage"
     ]
 }

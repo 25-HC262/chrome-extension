@@ -41,6 +41,8 @@ function updateCaptionScript() {
   }
 }
 
+
+// Add button to select user video 
 function addUserSelectButton() {
   const menu = document.querySelector('div.pw1uU');
   if (!menu) return;
@@ -83,9 +85,12 @@ observer.observe(document.body, {
   subtree: true,
 });
 
+
+
 if (window.location.href.includes('landing')) {
   console.log("Main page : caption is not displayed");
 } else {  
+
   createCaption();
   createCaptionScriptBox();
 

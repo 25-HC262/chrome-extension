@@ -1,14 +1,22 @@
-// Capturing user video 
+// Capturing user video and streaming to server
 
 class MeetUserCapture {
   constructor() {
     this.isCapturing = false;
+    this.isStreaming = false;
     this.captureInterval = null;
     this.canvas = null; // convert video into image
     this.ctx = null; // canvas's 2D context
     this.selectedUsers = new Set(); // save selected user id 
     this.userVideos = new Map(); // mapping user and video 
     this.captureCount = 0;
+    
+    // Streaming properties
+    this.streamingUsers = new Map(); // Map of userId to MediaStream
+    this.peerConnections = new Map(); // Map of userId to RTCPeerConnection
+    this.streamingServer = null; // WebSocket connection to streaming server
+    this.streamingInterval = null;
+    
     this.init();
   }
 
@@ -27,7 +35,60 @@ class MeetUserCapture {
     this.createControlPanel(); 
     this.setupCanvas(); 
     this.startUserDetection();
+    this.connectToStreamingServer();
     console.log('Meet User Capture Extension initialized');
+  }
+
+  // Connect to streaming server
+  async connectToStreamingServer() {
+    try {
+      // You can change this URL to your streaming server
+      const serverUrl = 'ws://localhost:8080/stream';
+      this.streamingServer = new WebSocket(serverUrl);
+      
+      this.streamingServer.onopen = () => {
+        console.log('Connected to streaming server');
+        this.updateStatus('스트리밍 서버에 연결됨');
+      };
+      
+      this.streamingServer.onmessage = (event) => {
+        const message = JSON.parse(event.data);
+        this.handleServerMessage(message);
+      };
+      
+      this.streamingServer.onerror = (error) => {
+        console.error('Streaming server error:', error);
+        this.updateStatus('스트리밍 서버 연결 오류');
+      };
+      
+      this.streamingServer.onclose = () => {
+        console.log('Disconnected from streaming server');
+        this.updateStatus('스트리밍 서버 연결 해제');
+        // Try to reconnect after 5 seconds
+        setTimeout(() => this.connectToStreamingServer(), 5000);
+      };
+    } catch (error) {
+      console.error('Failed to connect to streaming server:', error);
+      this.updateStatus('스트리밍 서버 연결 실패');
+    }
+  }
+
+  // Handle messages from streaming server
+  handleServerMessage(message) {
+    switch (message.type) {
+      case 'stream_started':
+        console.log('Stream started on server for user:', message.userId);
+        break;
+      case 'stream_stopped':
+        console.log('Stream stopped on server for user:', message.userId);
+        break;
+      case 'error':
+        console.error('Server error:', message.error);
+        this.updateStatus(`서버 오류: ${message.error}`);
+        break;
+      default:
+        console.log('Unknown server message:', message);
+    }
   }
 
   // Create control panel UI 
@@ -48,7 +109,7 @@ class MeetUserCapture {
 
     // Title
     const title = document.createElement('h3');
-    title.textContent = '사용자별 화면 캡처';
+    title.textContent = '사용자별 화면 캡처 & 스트리밍';
     title.classList.add('meet-capture-title');
     title.style.cursor = 'move';
     title.style.display = 'flex';
@@ -103,6 +164,41 @@ class MeetUserCapture {
     refreshBtn.textContent = '새로고침';
     refreshBtn.classList.add('refresh');
 
+    // Streaming controls
+    const streamingControls = document.createElement('div');
+    streamingControls.classList.add('streaming-controls');
+    streamingControls.style.marginTop = '10px';
+    streamingControls.style.paddingTop = '10px';
+    streamingControls.style.borderTop = '1px solid #ddd';
+    
+    const streamingTitle = document.createElement('div');
+    streamingTitle.textContent = '실시간 스트리밍:';
+    streamingTitle.style.fontWeight = '500';
+    streamingTitle.style.marginBottom = '8px';
+    streamingTitle.style.color = '#333';
+    
+    const startStreamBtn = document.createElement('button');
+    startStreamBtn.id = 'start-stream-btn';
+    startStreamBtn.textContent = '스트리밍 시작';
+    startStreamBtn.style.backgroundColor = '#34a853';
+    startStreamBtn.style.color = 'white';
+    startStreamBtn.style.border = 'none';
+    startStreamBtn.style.padding = '8px 16px';
+    startStreamBtn.style.borderRadius = '4px';
+    startStreamBtn.style.cursor = 'pointer';
+    startStreamBtn.style.marginRight = '8px';
+
+    const stopStreamBtn = document.createElement('button');
+    stopStreamBtn.id = 'stop-stream-btn';
+    stopStreamBtn.textContent = '스트리밍 중지';
+    stopStreamBtn.style.backgroundColor = '#ea4335';
+    stopStreamBtn.style.color = 'white';
+    stopStreamBtn.style.border = 'none';
+    stopStreamBtn.style.padding = '8px 16px';
+    stopStreamBtn.style.borderRadius = '4px';
+    stopStreamBtn.style.cursor = 'pointer';
+    stopStreamBtn.disabled = true;
+
     // Program status
     const status = document.createElement('div');
     status.id = 'capture-status';
@@ -113,15 +209,23 @@ class MeetUserCapture {
     startBtn.addEventListener('click', () => this.startCapture());
     stopBtn.addEventListener('click', () => this.stopCapture());
     refreshBtn.addEventListener('click', () => this.refreshUserList());
+    startStreamBtn.addEventListener('click', () => this.startStreaming());
+    stopStreamBtn.addEventListener('click', () => this.stopStreaming());
 
     // Append buttons to controls
     controls.appendChild(startBtn);
     controls.appendChild(stopBtn);
     controls.appendChild(refreshBtn);
 
-    // Move userListContainer, controls, status into panelContent
+    // Append streaming controls
+    streamingControls.appendChild(streamingTitle);
+    streamingControls.appendChild(startStreamBtn);
+    streamingControls.appendChild(stopStreamBtn);
+
+    // Move userListContainer, controls, streamingControls, status into panelContent
     panelContent.appendChild(userListContainer);
     panelContent.appendChild(controls);
+    panelContent.appendChild(streamingControls);
     panelContent.appendChild(status);
 
     // Minimize logic
@@ -439,6 +543,178 @@ class MeetUserCapture {
     document.body.removeChild(link);
   }
 
+  // Start real-time streaming of selected users
+  async startStreaming() {
+    if (this.selectedUsers.size === 0) {
+      alert('스트리밍할 사용자를 선택해주세요.');
+      return;
+    }
+
+    if (!this.streamingServer || this.streamingServer.readyState !== WebSocket.OPEN) {
+      alert('스트리밍 서버에 연결되지 않았습니다.');
+      return;
+    }
+
+    try {
+      this.isStreaming = true;
+      this.updateStreamingButtons();
+      this.updateStatus(`${this.selectedUsers.size}명의 사용자 스트리밍 시작...`);
+
+      // Start streaming each selected user
+      for (const userId of this.selectedUsers) {
+        await this.startUserStreaming(userId);
+      }
+
+      // Start periodic streaming updates
+      this.streamingInterval = setInterval(() => {
+        this.updateStreamingData();
+      }, 100); // Update every 100ms for smooth streaming
+
+      console.log('Started streaming selected users:', Array.from(this.selectedUsers));
+      
+    } catch (error) {
+      console.error('Streaming start error:', error);
+      this.updateStatus(`스트리밍 오류: ${error.message}`);
+      this.stopStreaming();
+    }
+  }
+
+  // Start streaming for a specific user
+  async startUserStreaming(userId) {
+    const user = this.userVideos.get(userId);
+    if (!user || !user.video) {
+      console.error(`User ${userId} not found or no video`);
+      return;
+    }
+
+    try {
+      // Create canvas stream from video
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      const video = user.video;
+      
+      canvas.width = video.videoWidth || video.clientWidth;
+      canvas.height = video.videoHeight || video.clientHeight;
+      
+      // Create MediaStream from canvas
+      const stream = canvas.captureStream(30); // 30 FPS
+      
+      // Store the canvas and context for this user
+      this.streamingUsers.set(userId, {
+        stream: stream,
+        canvas: canvas,
+        ctx: ctx,
+        video: video
+      });
+
+      // Notify server about new stream
+      if (this.streamingServer && this.streamingServer.readyState === WebSocket.OPEN) {
+        this.streamingServer.send(JSON.stringify({
+          type: 'start_stream',
+          userId: userId,
+          userName: user.name || userId,
+          width: canvas.width,
+          height: canvas.height,
+          fps: 30
+        }));
+      }
+
+      console.log(`Started streaming user ${userId}`);
+      
+    } catch (error) {
+      console.error(`Error starting stream for user ${userId}:`, error);
+      throw error;
+    }
+  }
+
+  // Update streaming data for all streaming users
+  updateStreamingData() {
+    this.streamingUsers.forEach((streamData, userId) => {
+      try {
+        const { canvas, ctx, video } = streamData;
+        
+        // Draw current video frame to canvas
+        if (video.videoWidth > 0 && video.videoHeight > 0) {
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          
+          // Convert canvas to blob and send to server
+          canvas.toBlob((blob) => {
+            if (blob && this.streamingServer && this.streamingServer.readyState === WebSocket.OPEN) {
+              // Send frame data to server
+              this.streamingServer.send(JSON.stringify({
+                type: 'frame_data',
+                userId: userId,
+                timestamp: Date.now(),
+                size: blob.size
+              }));
+              
+              // Send the actual blob data
+              this.streamingServer.send(blob);
+            }
+          }, 'image/jpeg', 0.8);
+        }
+      } catch (error) {
+        console.error(`Error updating stream for user ${userId}:`, error);
+      }
+    });
+  }
+
+  // Stop streaming
+  stopStreaming() {
+    this.isStreaming = false;
+    this.updateStreamingButtons();
+    
+    if (this.streamingInterval) {
+      clearInterval(this.streamingInterval);
+      this.streamingInterval = null;
+    }
+
+    // Stop streaming for each user
+    this.streamingUsers.forEach((streamData, userId) => {
+      this.stopUserStreaming(userId);
+    });
+
+    this.streamingUsers.clear();
+    this.updateStatus('스트리밍 중지됨');
+    console.log('Streaming stopped');
+  }
+
+  // Stop streaming for a specific user
+  stopUserStreaming(userId) {
+    const streamData = this.streamingUsers.get(userId);
+    if (streamData) {
+      // Stop all tracks in the stream
+      if (streamData.stream) {
+        streamData.stream.getTracks().forEach(track => track.stop());
+      }
+      
+      // Notify server about stream stop
+      if (this.streamingServer && this.streamingServer.readyState === WebSocket.OPEN) {
+        this.streamingServer.send(JSON.stringify({
+          type: 'stop_stream',
+          userId: userId
+        }));
+      }
+      
+      this.streamingUsers.delete(userId);
+      console.log(`Stopped streaming user ${userId}`);
+    }
+  }
+
+  // Update streaming control buttons
+  updateStreamingButtons() {
+    const startStreamBtn = document.getElementById('start-stream-btn');
+    const stopStreamBtn = document.getElementById('stop-stream-btn');
+    
+    if (startStreamBtn && stopStreamBtn) {
+      startStreamBtn.disabled = this.isStreaming;
+      stopStreamBtn.disabled = !this.isStreaming;
+      
+      startStreamBtn.style.opacity = this.isStreaming ? '0.5' : '1';
+      stopStreamBtn.style.opacity = this.isStreaming ? '1' : '0.5';
+    }
+  }
+
   stopCapture() {
     this.isCapturing = false;
     this.updateControlButtons();
@@ -467,8 +743,15 @@ class MeetUserCapture {
     const statusEl = document.getElementById('capture-status');
     if (statusEl) {
       statusEl.textContent = message;
-      statusEl.classList.remove('status-capturing', 'status-idle');
-      statusEl.classList.add(this.isCapturing ? 'status-capturing' : 'status-idle');
+      statusEl.classList.remove('status-capturing', 'status-idle', 'status-streaming');
+      
+      if (this.isStreaming) {
+        statusEl.classList.add('status-streaming');
+      } else if (this.isCapturing) {
+        statusEl.classList.add('status-capturing');
+      } else {
+        statusEl.classList.add('status-idle');
+      }
     }
   }
 }

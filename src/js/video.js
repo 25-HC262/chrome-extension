@@ -43,7 +43,8 @@ class MeetUserCapture {
   async connectToStreamingServer() {
     try {
       // You can change this URL to your streaming server
-      const serverUrl = 'ws://localhost:8080/stream';
+      // const serverUrl = 'wss://52.64.75.56:3000/';
+      const serverUrl = 'wss://43.202.48.37:3000'
       this.streamingServer = new WebSocket(serverUrl);
       
       this.streamingServer.onopen = () => {
@@ -147,23 +148,6 @@ class MeetUserCapture {
       </div>
     `;
 
-    // Action buttons
-    const controls = document.createElement('div');
-    controls.classList.add('controls');
-    
-    const startBtn = document.createElement('button');
-    startBtn.id = 'start-capture-btn';
-    startBtn.textContent = '캡처 시작';
-
-    const stopBtn = document.createElement('button');
-    stopBtn.id = 'stop-capture-btn';
-    stopBtn.textContent = '캡처 중지';
-    stopBtn.disabled = true;
-
-    const refreshBtn = document.createElement('button');
-    refreshBtn.textContent = '새로고침';
-    refreshBtn.classList.add('refresh');
-
     // Streaming controls
     const streamingControls = document.createElement('div');
     streamingControls.classList.add('streaming-controls');
@@ -206,16 +190,8 @@ class MeetUserCapture {
     status.textContent = '대기 중';
 
     // Event listener
-    startBtn.addEventListener('click', () => this.startCapture());
-    stopBtn.addEventListener('click', () => this.stopCapture());
-    refreshBtn.addEventListener('click', () => this.refreshUserList());
     startStreamBtn.addEventListener('click', () => this.startStreaming());
     stopStreamBtn.addEventListener('click', () => this.stopStreaming());
-
-    // Append buttons to controls
-    controls.appendChild(startBtn);
-    controls.appendChild(stopBtn);
-    controls.appendChild(refreshBtn);
 
     // Append streaming controls
     streamingControls.appendChild(streamingTitle);
@@ -224,7 +200,6 @@ class MeetUserCapture {
 
     // Move userListContainer, controls, streamingControls, status into panelContent
     panelContent.appendChild(userListContainer);
-    panelContent.appendChild(controls);
     panelContent.appendChild(streamingControls);
     panelContent.appendChild(status);
 
@@ -565,10 +540,7 @@ class MeetUserCapture {
         await this.startUserStreaming(userId);
       }
 
-      // Start periodic streaming updates
-      this.streamingInterval = setInterval(() => {
-        this.updateStreamingData();
-      }, 100); // Update every 100ms for smooth streaming
+      // Using MediaRecorder-based streaming; no periodic JPEG frame push needed
 
       console.log('Started streaming selected users:', Array.from(this.selectedUsers));
       
@@ -588,24 +560,49 @@ class MeetUserCapture {
     }
 
     try {
-      // Create canvas stream from video
+      // Create canvas and drawing context
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
       const video = user.video;
-      
-      canvas.width = video.videoWidth || video.clientWidth;
-      canvas.height = video.videoHeight || video.clientHeight;
-      
+
+      // Determine target resolution (scale down to save bandwidth)
+      const sourceWidth = video.videoWidth || video.clientWidth;
+      const sourceHeight = video.videoHeight || video.clientHeight;
+      const targetMaxWidth = 640; // reduce server and network load
+      const scale = Math.min(1, targetMaxWidth / (sourceWidth || 1));
+      const targetWidth = Math.max(1, Math.round((sourceWidth || 1) * scale));
+      const targetHeight = Math.max(1, Math.round((sourceHeight || 1) * scale));
+      canvas.width = targetWidth;
+      canvas.height = targetHeight;
+
       // Create MediaStream from canvas
       const stream = canvas.captureStream(30); // 30 FPS
-      
-      // Store the canvas and context for this user
-      this.streamingUsers.set(userId, {
+
+      // Pick supported mimeType, prefer vp9 -> vp8 -> webm
+      const preferredMimeTypes = [
+        'video/webm;codecs=vp9',
+        'video/webm;codecs=vp8',
+        'video/webm'
+      ];
+      const chosenMimeType = preferredMimeTypes.find(t => {
+        try { return window.MediaRecorder && MediaRecorder.isTypeSupported(t); } catch (_) { return false; }
+      }) || '';
+
+      const videoBitsPerSecond = 800000; // ~0.8 Mbps per user
+      const recorderOptions = {};
+      if (chosenMimeType) recorderOptions.mimeType = chosenMimeType;
+      recorderOptions.videoBitsPerSecond = videoBitsPerSecond;
+
+      // Build per-user streaming state
+      const streamData = {
         stream: stream,
         canvas: canvas,
         ctx: ctx,
-        video: video
-      });
+        video: video,
+        recorder: null,
+        drawFrameId: null
+      };
+      this.streamingUsers.set(userId, streamData);
 
       // Notify server about new stream
       if (this.streamingServer && this.streamingServer.readyState === WebSocket.OPEN) {
@@ -615,11 +612,64 @@ class MeetUserCapture {
           userName: user.name || userId,
           width: canvas.width,
           height: canvas.height,
-          fps: 30
+          fps: 30,
+          mimeType: chosenMimeType || undefined,
+          videoBitsPerSecond: videoBitsPerSecond
         }));
       }
 
-      console.log(`Started streaming user ${userId}`);
+      // Start drawing frames from <video> to canvas
+      const draw = () => {
+        try {
+          if (video.videoWidth > 0 && video.videoHeight > 0) {
+            ctx.save();
+            ctx.scale(-1,1);
+            ctx.drawImage(video, -canvas.width, 0, canvas.width, canvas.height);
+            ctx.restore();
+          }
+        } catch (e) {
+          console.warn(`Draw error for user ${userId}:`, e);
+        } finally {
+          streamData.drawFrameId = requestAnimationFrame(draw);
+        }
+      };
+      draw();
+
+      // Create and start MediaRecorder
+      const recorder = new MediaRecorder(stream, recorderOptions);
+      streamData.recorder = recorder;
+
+      recorder.ondataavailable = (event) => {
+        if (!event.data || event.data.size === 0) return;
+        if (!this.streamingServer || this.streamingServer.readyState !== WebSocket.OPEN) return;
+        // Send metadata first
+        this.streamingServer.send(JSON.stringify({
+          type: 'video_chunk',
+          userId: userId,
+          timestamp: Date.now(),
+          size: event.data.size,
+          mimeType: recorder.mimeType || chosenMimeType || 'video/webm'
+        }));
+        // Then send the actual media chunk
+        this.streamingServer.send(event.data);
+      };
+
+      recorder.onerror = (err) => {
+        console.error(`MediaRecorder error for user ${userId}:`, err);
+      };
+
+      recorder.onstart = () => {
+        console.log(`MediaRecorder started for user ${userId}`);
+      };
+
+      recorder.onstop = () => {
+        console.log(`MediaRecorder stopped for user ${userId}`);
+      };
+
+      // Emit chunks every 1000ms
+      recorder.start(1000);
+
+      console.log(`Started streaming user ${userId} with MediaRecorder (${recorder.mimeType || chosenMimeType || 'video/webm'}) at ${videoBitsPerSecond}bps`);
       
     } catch (error) {
       console.error(`Error starting stream for user ${userId}:`, error);
@@ -627,37 +677,7 @@ class MeetUserCapture {
     }
   }
 
-  // Update streaming data for all streaming users
-  updateStreamingData() {
-    this.streamingUsers.forEach((streamData, userId) => {
-      try {
-        const { canvas, ctx, video } = streamData;
-        
-        // Draw current video frame to canvas
-        if (video.videoWidth > 0 && video.videoHeight > 0) {
-          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-          
-          // Convert canvas to blob and send to server
-          canvas.toBlob((blob) => {
-            if (blob && this.streamingServer && this.streamingServer.readyState === WebSocket.OPEN) {
-              // Send frame data to server
-              this.streamingServer.send(JSON.stringify({
-                type: 'frame_data',
-                userId: userId,
-                timestamp: Date.now(),
-                size: blob.size
-              }));
-              
-              // Send the actual blob data
-              this.streamingServer.send(blob);
-            }
-          }, 'image/jpeg', 0.8);
-        }
-      } catch (error) {
-        console.error(`Error updating stream for user ${userId}:`, error);
-      }
-    });
-  }
+  // (Deprecated) updateStreamingData removed in favor of MediaRecorder chunk streaming
 
   // Stop streaming
   stopStreaming() {
@@ -683,6 +703,17 @@ class MeetUserCapture {
   stopUserStreaming(userId) {
     const streamData = this.streamingUsers.get(userId);
     if (streamData) {
+      // Stop draw loop
+      if (streamData.drawFrameId) {
+        cancelAnimationFrame(streamData.drawFrameId);
+        streamData.drawFrameId = null;
+      }
+
+      // Stop recorder
+      if (streamData.recorder && streamData.recorder.state !== 'inactive') {
+        try { streamData.recorder.stop(); } catch (_) {}
+      }
+
       // Stop all tracks in the stream
       if (streamData.stream) {
         streamData.stream.getTracks().forEach(track => track.stop());
@@ -726,17 +757,6 @@ class MeetUserCapture {
 
     this.updateStatus(`캡처 중지됨 (총 ${this.captureCount}회 캡처)`);
     console.log('Capture stopped');
-  }
-
-  updateControlButtons() {
-    const startBtn = document.getElementById('start-capture-btn');
-    const stopBtn = document.getElementById('stop-capture-btn');
-    if (startBtn && stopBtn) {
-      startBtn.disabled = this.isCapturing;
-      stopBtn.disabled = !this.isCapturing;
-      startBtn.style.opacity = this.isCapturing ? '0.5' : '1';
-      stopBtn.style.opacity = this.isCapturing ? '1' : '0.5';
-    }
   }
 
   updateStatus(message) {

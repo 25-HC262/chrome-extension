@@ -44,7 +44,9 @@ class MeetUserCapture {
     try {
       // You can change this URL to your streaming server
       // const serverUrl = 'wss://52.64.75.56:3000/';
-      const serverUrl = 'wss://43.202.48.37:3000'
+      // user id(temp) : /?userId=Nl0j0e
+      // const serverUrl = 'https://streaming.trout-model.kro.kr:3000'
+      const serverUrl = 'wss://streaming.trout-stream.n-e.kr/stream';
       this.streamingServer = new WebSocket(serverUrl);
       
       this.streamingServer.onopen = () => {

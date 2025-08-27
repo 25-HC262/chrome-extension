@@ -1,6 +1,37 @@
-// Capturing user video and streaming to server
+// Create Caption
+// Add button to select user video 
+ function addUserSelectButton() {
+  const menu = document.querySelector('div.pw1uU');
+  if (!menu) return;
 
-import { updateCaption } from './caption.js'
+  if (menu.querySelector('.my-custom-option'))
+    return;
+
+  const refItem = menu.querySelector('div[role="menuitem"]');
+
+  const newItem = document.createElement('div');
+  newItem.className = 'my-custom-option';
+  newItem.setAttribute('role', 'menuitem');
+  newItem.textContent = '사용자 정의 동작';
+  newItem.style.cursor = 'pointer';
+  newItem.style.padding = '10px';
+  newItem.style.color = '#fff';
+  newItem.style.fontSize = '14px';
+  newItem.style.backgroundColor = '#3c4043';
+  newItem.style.borderTop = '1px solid #555';
+
+  if (refItem) {
+    newItem.className = refItem.className;
+    newItem.style.cssText = refItem.style.cssText;
+  }
+
+  newItem.addEventListener('click', (e) => {
+    e.stopPropagation();
+    console.log('유저 선택됨');
+  });
+
+  menu.appendChild(newItem);
+}
 
 class MeetUserCapture {
   constructor() {
@@ -12,6 +43,7 @@ class MeetUserCapture {
     this.selectedUsers = new Set(); // save selected user id 
     this.userVideos = new Map(); // mapping user and video 
     this.captureCount = 0;
+    this.captionScript = []; 
     
     // Streaming properties
     this.streamingUsers = new Map(); // Map of userId to MediaStream
@@ -35,6 +67,8 @@ class MeetUserCapture {
   // Setting extension program 
   setupExtension() {
     this.createControlPanel(); 
+    this.createCaption();
+    this.createCaptionScriptBox();
     this.setupCanvas(); 
     this.startUserDetection();
     this.connectToStreamingServer();
@@ -58,7 +92,8 @@ class MeetUserCapture {
       
       this.streamingServer.onmessage = (event) => {
         const message = JSON.parse(event.data);
-        this.updateCaption(message);
+        console.log('스트리밍 시작 또는 종료됨');
+        this.updateCaption(message.text);
       };
       
       this.streamingServer.onerror = (error) => {
@@ -77,6 +112,46 @@ class MeetUserCapture {
       this.updateStatus('스트리밍 서버 연결 실패');
     }
   }
+    createCaption() {
+    const existing = document.getElementById('sign-caption');
+    if (existing) return;
+
+    const captionDiv = document.createElement('div');
+    captionDiv.id = 'sign-caption'; 
+    captionDiv.textContent = '이것은 테스트 자막 입니다.';
+    document.body.appendChild(captionDiv);
+    }
+
+    // Update caption content
+    updateCaption(text) {
+    const captionDiv = document.getElementById('sign-caption');
+    if (captionDiv) {
+        captionDiv.textContent = text;
+    }
+
+    this.captionScript.push(text);
+    this.updateCaptionScript();
+    }
+
+    // Save caption script
+    createCaptionScriptBox() {
+    const existing = document.getElementById('caption-script');
+    if (existing) return;
+
+    const captionScriptDiv = document.createElement('div');
+    captionScriptDiv.id = 'caption-script'; 
+    captionScriptDiv.textContent = '이것은 테스트 자막 스크립트 입니다.';
+    document.body.appendChild(captionScriptDiv);
+    }
+
+    // Update caption script content
+    updateCaptionScript() {
+    const captionScriptDiv = document.getElementById('caption-script');
+    if (captionScriptDiv) {
+        captionScriptDiv.innerHTML = this.captionScript.map(line => `<div>${line}</div>`).join('');;
+    }
+    }
+
 
   // Handle messages from streaming server
   handleServerMessage(message) {
@@ -89,7 +164,8 @@ class MeetUserCapture {
         break;
       case 'model_response' :
         console.log(`[서버로부터 받은 응답] -> ${message.text}`);
-        this.showSubtitle(message.text);
+        // this.showSubtitle(message.text);
+        this.updateCaption(message.text);
       case 'error':
         console.error('Server error:', message.error);
         this.updateStatus(`서버 오류: ${message.error}`);
@@ -783,12 +859,32 @@ class MeetUserCapture {
   }
 }
 
+const observer = new MutationObserver(() => {
+  addUserSelectButton();
+});
+
+observer.observe(document.body, {
+  childList: true,
+  subtree: true,
+});
+
 // 확장프로그램 초기화
 if (window.location.href.includes('landing')) {
   console.log("Main page : video is not displayed");
 } else {
   try {
-    new MeetUserCapture();
+     const extensionInstance = new MeetUserCapture();
+    
+    extensionInstance.createCaption();
+    extensionInstance.createCaptionScriptBox();
+
+    let captions = ["안녕하세요", "this is test caption"];
+    let i = 0;
+
+    // setInterval(() => {
+    //   updateCaption(captions[i % captions.length]);
+    //   i++;
+    // }, 3000);
   } catch (error) {
     console.error('Extension initialization error:', error);
   }

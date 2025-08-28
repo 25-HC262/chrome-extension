@@ -884,19 +884,60 @@ observer.observe(document.body, {
   subtree: true,
 });
 
+
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+async function runCaptionSequence() {
+        let captions = [
+            "안녕하세요", 
+            "제가 많이 급합니다.",
+            "목적지를 변경하고 싶습니다.",
+            "서울역으로 가주세요.",
+            "괜찮아요.",
+            "감사합니다"
+        ];
+        let i=0;
+    
+     const extensionInstance = new MeetUserCapture();
+    extensionInstance.createCaption();
+    // extensionInstance.createCaptionScriptBox();
+
+    
+    await delay(5000);
+    extensionInstance.updateCaption(captions[i++]);
+
+    await delay(5000);
+    extensionInstance.updateCaption(captions[i++]);
+
+    await delay(5000);
+    extensionInstance.updateCaption(captions[i++]);
+
+
+    await delay(8000);
+
+
+    await delay(5000);
+    extensionInstance.updateCaption(captions[i++]);
+
+    
+    await delay(8000);
+
+    extensionInstance.updateCaption(captions[i++]);
+    await delay(3000);
+
+    extensionInstance.updateCaption(captions[i++]);
+    await delay(2000);
+
+}
+
 // 확장프로그램 초기화
 if (window.location.href.includes('landing')) {
   console.log("Main page : video is not displayed");
 } else {
   try {
-     const extensionInstance = new MeetUserCapture();
+
     
-    extensionInstance.createCaption();
-    extensionInstance.createCaptionScriptBox();
-
-    let captions = ["안녕하세요", "this is test caption"];
-    let i = 0;
-
+    runCaptionSequence();
     // setInterval(() => {
     //   updateCaption(captions[i % captions.length]);
     //   i++;

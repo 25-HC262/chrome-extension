@@ -625,7 +625,7 @@ extractUserName(container) {
     }
 
     if (!this.streamingServer || this.streamingServer.readyState !== WebSocket.OPEN) {
-      alert('스트리밍 서버에 연결되지 않았습니다.');
+    //   alert('스트리밍 서버에 연결되지 않았습니다.');
       return;
     }
 
@@ -889,12 +889,14 @@ const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 async function runCaptionSequence() {
         let captions = [
+            "", 
+            " ", 
             "안녕하세요", 
             "제가 많이 급합니다.",
             "목적지를 변경하고 싶습니다.",
             "서울역으로 가주세요.",
             "괜찮아요.",
-            "감사합니다"
+            "감사합니다."
         ];
         let i=0;
     
@@ -902,31 +904,36 @@ async function runCaptionSequence() {
     extensionInstance.createCaption();
     // extensionInstance.createCaptionScriptBox();
 
-    
-    await delay(5000);
-    extensionInstance.updateCaption(captions[i++]);
-
-    await delay(5000);
-    extensionInstance.updateCaption(captions[i++]);
-
-    await delay(5000);
-    extensionInstance.updateCaption(captions[i++]);
-
-
-    await delay(8000);
-
-
-    await delay(5000);
-    extensionInstance.updateCaption(captions[i++]);
-
-    
-    await delay(8000);
-
-    extensionInstance.updateCaption(captions[i++]);
     await delay(3000);
+    extensionInstance.updateCaption(captions[i++]);
+
+    await delay(10000);
+    extensionInstance.updateCaption(captions[i++]);
+    
+    await delay(5000);
+    extensionInstance.updateCaption(captions[i++]);
+
+    await delay(5000);
+    extensionInstance.updateCaption(captions[i++]);
+
+    await delay(5000);
+    extensionInstance.updateCaption(captions[i++]);
+
+
+    await delay(10000);
+
+
+    await delay(5000);
+    extensionInstance.updateCaption(captions[i++]);
+
+    
+    await delay(11000);
 
     extensionInstance.updateCaption(captions[i++]);
-    await delay(2000);
+    await delay(5000);
+
+    extensionInstance.updateCaption(captions[i++]);
+    await delay(5000);
 
 }
 
@@ -936,11 +943,9 @@ if (window.location.href.includes('landing')) {
 } else {
   try {
 
-    
-    runCaptionSequence();
+        runCaptionSequence();
     // setInterval(() => {
-    //   updateCaption(captions[i % captions.length]);
-    //   i++;
+    //   runCaptionSequence();
     // }, 3000);
   } catch (error) {
     console.error('Extension initialization error:', error);

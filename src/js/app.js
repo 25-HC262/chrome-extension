@@ -135,21 +135,21 @@ class MeetUserCapture {
 
     // Save caption script
     createCaptionScriptBox() {
-    const existing = document.getElementById('caption-script');
-    if (existing) return;
+    // const existing = document.getElementById('caption-script');
+    // if (existing) return;
 
-    const captionScriptDiv = document.createElement('div');
-    captionScriptDiv.id = 'caption-script'; 
-    captionScriptDiv.textContent = '이것은 테스트 자막 스크립트 입니다.';
-    document.body.appendChild(captionScriptDiv);
+    // const captionScriptDiv = document.createElement('div');
+    // captionScriptDiv.id = 'caption-script'; 
+    // captionScriptDiv.textContent = '이것은 테스트 자막 스크립트 입니다.';
+    // document.body.appendChild(captionScriptDiv);
     }
 
     // Update caption script content
     updateCaptionScript() {
-    const captionScriptDiv = document.getElementById('caption-script');
-    if (captionScriptDiv) {
-        captionScriptDiv.innerHTML = this.captionScript.map(line => `<div>${line}</div>`).join('');;
-    }
+    // const captionScriptDiv = document.getElementById('caption-script');
+    // if (captionScriptDiv) {
+    //     captionScriptDiv.innerHTML = this.captionScript.map(line => `<div>${line}</div>`).join('');;
+    // }
     }
 
 
@@ -378,14 +378,14 @@ class MeetUserCapture {
       checkbox.style.marginRight = '10px';
 
       const label = document.createElement('label');
-      label.htmlFor = `user-${index}`;
+      label.htmlFor = `user-${user.id}`;
       label.classList.add('user-label');
 
       // Display user information
       const userInfo = document.createElement('div');
       userInfo.classList.add('user-info');
       userInfo.innerHTML = `
-        <div>${user.name || `참가자 ${index + 1}`}</div>
+        <div>${user.name || `참가자 ${index+1}` }</div>
         <div class="user-info-details">${user.videoSize} • ${user.type}</div>
       `;
 
@@ -418,7 +418,7 @@ class MeetUserCapture {
     videoElements.forEach((video, index) => {
       const container = video.closest('[data-participant-id], [data-allocation-index], [jsname]');
       const participantId = this.extractParticipantId(container, video, index);
-      const name = this.extractUserName(container, video);
+      const name = this.extractUserName(container);
       const videoSize = `${video.videoWidth || video.clientWidth}x${video.videoHeight || video.clientHeight}`;
       const type = this.determineVideoType(video, container);
 
@@ -472,40 +472,56 @@ class MeetUserCapture {
       const dataId = container.getAttribute('data-participant-id') ||
                     container.getAttribute('data-allocation-index') ||
                     container.getAttribute('jsname');
-      if (dataId) return dataId;
+      if (dataId && dataId.startsWith('ucc-')) {
+            return dataId; // Found a reliable ID, use it.
+        }
     }
     
     // Try to extract ID from video element
-    const videoId = video.getAttribute('data-participant-id') || 
-                   video.id || 
-                   video.className;
+    if (video.src && video.src.startsWith('blob:')) {
+        return video.src;
+    }
     
-    return videoId || `user_${index}`;
+   const name = this.extractUserName(container);
+    if (name) {
+        return `${name.replace(/\s/g, '_')}_${index}`;
+    }
+
+    return `user_${index}`;
   }
 
-  extractUserName(container, video) {
+extractUserName(container) {
     if (!container) return null;
-    
+
+    // Check for the most reliable pattern: a specific name container or aria-label
+    // 나중에 더 봐야할 것...
     const nameSelectors = [
-      '[data-self-name]',
-      '[aria-label*="님"]',
-      '.zWGUib', // Meet의 이름 표시 클래스 (변경될 수 있음)
-      '.VfPpkd-Bz112c', // 또 다른 이름 클래스
-      'div[role="button"][aria-label]'
+        // This selector targets a span with the user's name inside a specific div
+        'div.zSX24d > div.jKwXVe > span.zWGUib',
+        '[aria-label*="님"]', // Look for aria-label with "님" suffix
+        'div[role="button"][aria-label]', // Buttons with an aria-label
+        '.notranslate' // General notranslate class,
     ];
 
     for (const selector of nameSelectors) {
-      const nameEl = container.querySelector(selector);
-      if (nameEl) {
-        const name = nameEl.textContent || nameEl.getAttribute('aria-label');
-        if (name && name.trim()) {
-          return name.replace(/님$/, '').trim();
+        const nameEl = container.querySelector(selector);
+        console.log("@#@#",!!(nameEl));
+        if (nameEl) {
+            const name = nameEl.textContent || nameEl.getAttribute('aria-label');
+            if (name && name.trim()) {
+                return name.replace(/님$/, '').trim();
+            }
         }
-      }
+    }
+
+    // Fallback: If no specific selector works, check the container's attributes
+    const ariaLabelName = container.getAttribute('aria-label');
+    if (ariaLabelName && ariaLabelName.trim()) {
+        return ariaLabelName.replace(/님$/, '').trim();
     }
 
     return null;
-  }
+}
 
   determineVideoType(video, container) {
     const width = video.videoWidth || video.clientWidth;

@@ -540,7 +540,7 @@ class MeetUserCapture {
     try {
       this.isStreaming = true;
       this.updateStreamingButtons();
-      this.updateStatus(`${this.selectedUsers.size}명의 사용자 스트리밍 시작...`);
+      this.updateStatus(`${this.selectedUsers.size}명의 사용자 스트리밍 시작.!!!!!!!!!!!..`);
 
       // Start streaming each selected user
       for (const userId of this.selectedUsers) {

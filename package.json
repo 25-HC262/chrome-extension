@@ -3,7 +3,8 @@
     "@googleworkspace/meet-addons": "^1.2.0"
   },
   "devDependencies": {
-    "webpack": "^5.99.8",
+    "copy-webpack-plugin": "^13.0.1",
+    "webpack": "^5.101.3",
     "webpack-cli": "^6.0.1"
   },
   "type": "module"

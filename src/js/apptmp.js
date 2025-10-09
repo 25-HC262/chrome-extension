@@ -50,9 +50,11 @@ class MeetUserCapture {
     this.peerConnections = new Map(); // Map of userId to RTCPeerConnection
     this.streamingServer = null; // WebSocket connection to streaming server
     this.streamingInterval = null;
-    
+    this.userId='Nl0j0e';
+
     this.init();
   }
+
 
   init() {
     if (document.readyState === 'loading') {
@@ -81,8 +83,10 @@ class MeetUserCapture {
       // You can change this URL to your streaming server
       // const serverUrl = 'wss://52.64.75.56:3000/';
       // user id(temp) : /?userId=Nl0j0e
-      // const serverUrl = 'https://streaming.trout-model.kro.kr:3000'
-      const serverUrl = 'wss://streaming.trout-stream.n-e.kr/stream';
+
+      // const serverUrl = 'wss://streaming.trout-stream.n-e.kr/stream';
+      const serverUrl = `ws://localhost:3000/stream?userId=${this.userId}`;
+      console.log("serverURL:",serverUrl);
       this.streamingServer = new WebSocket(serverUrl);
       
       this.streamingServer.onopen = () => {
@@ -385,7 +389,7 @@ class MeetUserCapture {
       const userInfo = document.createElement('div');
       userInfo.classList.add('user-info');
       userInfo.innerHTML = `
-        <div>${user.name || `참가자 ${index+1}` }</div>
+        <div>${user.id || `참가자 ${index+1}` }</div>
         <div class="user-info-details">${user.videoSize} • ${user.type}</div>
       `;
 
@@ -431,7 +435,6 @@ class MeetUserCapture {
         type: type,
         index: index
       };
-
       users.push(user);
       this.userVideos.set(participantId, user);
     });
@@ -632,7 +635,7 @@ extractUserName(container) {
     try {
       this.isStreaming = true;
       this.updateStreamingButtons();
-      this.updateStatus(`${this.selectedUsers.size}명의 사용자 스트리밍 시작...`);
+      this.updateStatus(`${this.selectedUsers.size}명의 사용자 스트리밍 시작...........`);
 
       // Start streaming each selected user
       for (const userId of this.selectedUsers) {

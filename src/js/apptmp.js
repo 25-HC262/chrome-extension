@@ -1,6 +1,37 @@
-// Capturing user video and streaming to server
+// Create Caption
+// Add button to select user video 
+ function addUserSelectButton() {
+  const menu = document.querySelector('div.pw1uU');
+  if (!menu) return;
 
-import { updateCaption } from './caption.js'
+  if (menu.querySelector('.my-custom-option'))
+    return;
+
+  const refItem = menu.querySelector('div[role="menuitem"]');
+
+  const newItem = document.createElement('div');
+  newItem.className = 'my-custom-option';
+  newItem.setAttribute('role', 'menuitem');
+  newItem.textContent = '사용자 정의 동작';
+  newItem.style.cursor = 'pointer';
+  newItem.style.padding = '10px';
+  newItem.style.color = '#fff';
+  newItem.style.fontSize = '14px';
+  newItem.style.backgroundColor = '#3c4043';
+  newItem.style.borderTop = '1px solid #555';
+
+  if (refItem) {
+    newItem.className = refItem.className;
+    newItem.style.cssText = refItem.style.cssText;
+  }
+
+  newItem.addEventListener('click', (e) => {
+    e.stopPropagation();
+    console.log('유저 선택됨');
+  });
+
+  menu.appendChild(newItem);
+}
 
 class MeetUserCapture {
   constructor() {
@@ -12,15 +43,18 @@ class MeetUserCapture {
     this.selectedUsers = new Set(); // save selected user id 
     this.userVideos = new Map(); // mapping user and video 
     this.captureCount = 0;
+    this.captionScript = []; 
     
     // Streaming properties
     this.streamingUsers = new Map(); // Map of userId to MediaStream
     this.peerConnections = new Map(); // Map of userId to RTCPeerConnection
     this.streamingServer = null; // WebSocket connection to streaming server
     this.streamingInterval = null;
-    
+    this.userId='Nl0j0e';
+
     this.init();
   }
+
 
   init() {
     if (document.readyState === 'loading') {
@@ -35,6 +69,8 @@ class MeetUserCapture {
   // Setting extension program 
   setupExtension() {
     this.createControlPanel(); 
+    this.createCaption();
+    this.createCaptionScriptBox();
     this.setupCanvas(); 
     this.startUserDetection();
     this.connectToStreamingServer();
@@ -47,8 +83,10 @@ class MeetUserCapture {
       // You can change this URL to your streaming server
       // const serverUrl = 'wss://52.64.75.56:3000/';
       // user id(temp) : /?userId=Nl0j0e
-      // const serverUrl = 'https://streaming.trout-model.kro.kr:3000'
-      const serverUrl = 'wss://streaming.trout-stream.n-e.kr/stream';
+
+      // const serverUrl = 'wss://streaming.trout-stream.n-e.kr/stream';
+      const serverUrl = `ws://localhost:3000/stream?userId=${this.userId}`;
+      console.log("serverURL:",serverUrl);
       this.streamingServer = new WebSocket(serverUrl);
       
       this.streamingServer.onopen = () => {
@@ -58,7 +96,8 @@ class MeetUserCapture {
       
       this.streamingServer.onmessage = (event) => {
         const message = JSON.parse(event.data);
-        this.updateCaption(message);
+        console.log('스트리밍 시작 또는 종료됨');
+        this.updateCaption(message.text);
       };
       
       this.streamingServer.onerror = (error) => {
@@ -77,6 +116,46 @@ class MeetUserCapture {
       this.updateStatus('스트리밍 서버 연결 실패');
     }
   }
+    createCaption() {
+    const existing = document.getElementById('sign-caption');
+    if (existing) return;
+
+    const captionDiv = document.createElement('div');
+    captionDiv.id = 'sign-caption'; 
+    captionDiv.textContent = '이것은 테스트 자막 입니다.';
+    document.body.appendChild(captionDiv);
+    }
+
+    // Update caption content
+    updateCaption(text) {
+    const captionDiv = document.getElementById('sign-caption');
+    if (captionDiv) {
+        captionDiv.textContent = text;
+    }
+
+    this.captionScript.push(text);
+    this.updateCaptionScript();
+    }
+
+    // Save caption script
+    createCaptionScriptBox() {
+    // const existing = document.getElementById('caption-script');
+    // if (existing) return;
+
+    // const captionScriptDiv = document.createElement('div');
+    // captionScriptDiv.id = 'caption-script'; 
+    // captionScriptDiv.textContent = '이것은 테스트 자막 스크립트 입니다.';
+    // document.body.appendChild(captionScriptDiv);
+    }
+
+    // Update caption script content
+    updateCaptionScript() {
+    // const captionScriptDiv = document.getElementById('caption-script');
+    // if (captionScriptDiv) {
+    //     captionScriptDiv.innerHTML = this.captionScript.map(line => `<div>${line}</div>`).join('');;
+    // }
+    }
+
 
   // Handle messages from streaming server
   handleServerMessage(message) {
@@ -89,7 +168,8 @@ class MeetUserCapture {
         break;
       case 'model_response' :
         console.log(`[서버로부터 받은 응답] -> ${message.text}`);
-        this.showSubtitle(message.text);
+        // this.showSubtitle(message.text);
+        this.updateCaption(message.text);
       case 'error':
         console.error('Server error:', message.error);
         this.updateStatus(`서버 오류: ${message.error}`);
@@ -302,14 +382,14 @@ class MeetUserCapture {
       checkbox.style.marginRight = '10px';
 
       const label = document.createElement('label');
-      label.htmlFor = `user-${index}`;
+      label.htmlFor = `user-${user.id}`;
       label.classList.add('user-label');
 
       // Display user information
       const userInfo = document.createElement('div');
       userInfo.classList.add('user-info');
       userInfo.innerHTML = `
-        <div>${user.name || `참가자 ${index + 1}`}</div>
+        <div>${user.id || `참가자 ${index+1}` }</div>
         <div class="user-info-details">${user.videoSize} • ${user.type}</div>
       `;
 
@@ -342,7 +422,7 @@ class MeetUserCapture {
     videoElements.forEach((video, index) => {
       const container = video.closest('[data-participant-id], [data-allocation-index], [jsname]');
       const participantId = this.extractParticipantId(container, video, index);
-      const name = this.extractUserName(container, video);
+      const name = this.extractUserName(container);
       const videoSize = `${video.videoWidth || video.clientWidth}x${video.videoHeight || video.clientHeight}`;
       const type = this.determineVideoType(video, container);
 
@@ -355,7 +435,6 @@ class MeetUserCapture {
         type: type,
         index: index
       };
-
       users.push(user);
       this.userVideos.set(participantId, user);
     });
@@ -396,40 +475,56 @@ class MeetUserCapture {
       const dataId = container.getAttribute('data-participant-id') ||
                     container.getAttribute('data-allocation-index') ||
                     container.getAttribute('jsname');
-      if (dataId) return dataId;
+      if (dataId && dataId.startsWith('ucc-')) {
+            return dataId; // Found a reliable ID, use it.
+        }
     }
     
     // Try to extract ID from video element
-    const videoId = video.getAttribute('data-participant-id') || 
-                   video.id || 
-                   video.className;
+    if (video.src && video.src.startsWith('blob:')) {
+        return video.src;
+    }
     
-    return videoId || `user_${index}`;
+   const name = this.extractUserName(container);
+    if (name) {
+        return `${name.replace(/\s/g, '_')}_${index}`;
+    }
+
+    return `user_${index}`;
   }
 
-  extractUserName(container, video) {
+extractUserName(container) {
     if (!container) return null;
-    
+
+    // Check for the most reliable pattern: a specific name container or aria-label
+    // 나중에 더 봐야할 것...
     const nameSelectors = [
-      '[data-self-name]',
-      '[aria-label*="님"]',
-      '.zWGUib', // Meet의 이름 표시 클래스 (변경될 수 있음)
-      '.VfPpkd-Bz112c', // 또 다른 이름 클래스
-      'div[role="button"][aria-label]'
+        // This selector targets a span with the user's name inside a specific div
+        'div.zSX24d > div.jKwXVe > span.zWGUib',
+        '[aria-label*="님"]', // Look for aria-label with "님" suffix
+        'div[role="button"][aria-label]', // Buttons with an aria-label
+        '.notranslate' // General notranslate class,
     ];
 
     for (const selector of nameSelectors) {
-      const nameEl = container.querySelector(selector);
-      if (nameEl) {
-        const name = nameEl.textContent || nameEl.getAttribute('aria-label');
-        if (name && name.trim()) {
-          return name.replace(/님$/, '').trim();
+        const nameEl = container.querySelector(selector);
+        console.log("@#@#",!!(nameEl));
+        if (nameEl) {
+            const name = nameEl.textContent || nameEl.getAttribute('aria-label');
+            if (name && name.trim()) {
+                return name.replace(/님$/, '').trim();
+            }
         }
-      }
+    }
+
+    // Fallback: If no specific selector works, check the container's attributes
+    const ariaLabelName = container.getAttribute('aria-label');
+    if (ariaLabelName && ariaLabelName.trim()) {
+        return ariaLabelName.replace(/님$/, '').trim();
     }
 
     return null;
-  }
+}
 
   determineVideoType(video, container) {
     const width = video.videoWidth || video.clientWidth;
@@ -533,14 +628,14 @@ class MeetUserCapture {
     }
 
     if (!this.streamingServer || this.streamingServer.readyState !== WebSocket.OPEN) {
-      alert('스트리밍 서버에 연결되지 않았습니다.');
+    //   alert('스트리밍 서버에 연결되지 않았습니다.');
       return;
     }
 
     try {
       this.isStreaming = true;
       this.updateStreamingButtons();
-      this.updateStatus(`${this.selectedUsers.size}명의 사용자 스트리밍 시작.!!!!!!!!!!!..`);
+      this.updateStatus(`${this.selectedUsers.size}명의 사용자 스트리밍 시작...........`);
 
       // Start streaming each selected user
       for (const userId of this.selectedUsers) {
@@ -783,12 +878,78 @@ class MeetUserCapture {
   }
 }
 
+const observer = new MutationObserver(() => {
+  addUserSelectButton();
+});
+
+observer.observe(document.body, {
+  childList: true,
+  subtree: true,
+});
+
+
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+async function runCaptionSequence() {
+        let captions = [
+            "", 
+            " ", 
+            "안녕하세요", 
+            "제가 많이 급합니다.",
+            "목적지를 변경하고 싶습니다.",
+            "서울역으로 가주세요.",
+            "괜찮아요.",
+            "감사합니다."
+        ];
+        let i=0;
+    
+     const extensionInstance = new MeetUserCapture();
+    extensionInstance.createCaption();
+    // extensionInstance.createCaptionScriptBox();
+
+    await delay(3000);
+    extensionInstance.updateCaption(captions[i++]);
+
+    await delay(10000);
+    extensionInstance.updateCaption(captions[i++]);
+    
+    await delay(5000);
+    extensionInstance.updateCaption(captions[i++]);
+
+    await delay(5000);
+    extensionInstance.updateCaption(captions[i++]);
+
+    await delay(5000);
+    extensionInstance.updateCaption(captions[i++]);
+
+
+    await delay(10000);
+
+
+    await delay(5000);
+    extensionInstance.updateCaption(captions[i++]);
+
+    
+    await delay(11000);
+
+    extensionInstance.updateCaption(captions[i++]);
+    await delay(5000);
+
+    extensionInstance.updateCaption(captions[i++]);
+    await delay(5000);
+
+}
+
 // 확장프로그램 초기화
 if (window.location.href.includes('landing')) {
   console.log("Main page : video is not displayed");
 } else {
   try {
-    new MeetUserCapture();
+
+        runCaptionSequence();
+    // setInterval(() => {
+    //   runCaptionSequence();
+    // }, 3000);
   } catch (error) {
     console.error('Extension initialization error:', error);
   }

@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>화면 캡처 & 스트리밍 패널</title>
+    <link rel="index" href="index.css">
+</head>
+<body>
+    <div id="capture-panel" class="capture-panel">
+        <div class="panel-title" style="cursor: move;">
+            <h3>사용자별 화면 캡처 & 스트리밍</h3>
+            <button id="minimize-button" title="최소화">-</button>
+        </div>
+        <div class="panel-content">
+            <div class="user-list-container">
+                <div class="list-title" style="margin-bottom: 10px; font-weight: 500; color: #333;">
+                    참가자 목록
+                </div>
+                <div id="user-list" class="user-list">
+                    <div class="user-list-loading">
+                        Loading...
+                    </div>
+                </div>
+            </div>
+            <div class="translate-container">
+                <div class="controls-title" style="font-weight: 500; margin-bottom: 8px; color: #333;">
+                    실시간 해석
+                </div>
+                <button id="start-translate-button">해석 시작</button>
+                <button id="stop-translate-button">해석 중지</button>
+            </div>
+            <div id="caption-div"></div>
+            <div id="capture-status" class="status-idle">
+                대기 중
+            </div>
+        </div>
+    </div>
+    <script type="module" src="../app.js"></script>
+</body>
+</html>

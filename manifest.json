@@ -8,14 +8,21 @@
         {
             "matches": ["https://meet.google.com/*"],
             "js": [
-                "./src/js/video.js",
-                "./src/js/caption.js"
+                "dist/content.js"
             ],
             "css": [
-                "./src/css/video.css",
-                "./src/css/caption.css"
+                "./src/public/index.css"
             ],
             "run_at" : "document_idle"
+        }
+    ],
+    "web_accessible_resources": [
+        {
+            "resources": [
+                "src/public/index.html",
+                "src/public/index.css"
+            ],
+            "matches": ["<all_urls>"]
         }
     ],
     "permissions": [

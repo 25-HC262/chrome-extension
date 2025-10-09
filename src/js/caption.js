@@ -1,4 +1,6 @@
 // Create Caption
+
+
 function createCaption() {
   const existing = document.getElementById('sign-caption');
   if (existing) return;
@@ -97,8 +99,10 @@ if (window.location.href.includes('landing')) {
   let captions = ["안녕하세요", "this is test caption"];
   let i = 0;
 
-  setInterval(() => {
-    updateCaption(captions[i % captions.length]);
-    i++;
-  }, 3000);
+  // setInterval(() => {
+  //   updateCaption(captions[i % captions.length]);
+  //   i++;
+  // }, 3000);
 }
+
+export { updateCaption }

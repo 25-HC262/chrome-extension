@@ -306,6 +306,18 @@ class StreamController {
             case 'model_response' :
                 console.log(`[서버로부터 받은 응답] -> ${message.text}`);
                 captionController.updateCaption(message.text);
+                
+                chrome.runtime.sendMessage({
+                    action: "readCaption",
+                    captionText: message.text
+                }).then(() => {
+                        // 성공적으로 메시지 전송 후 lastCaptionText 업데이트
+                        captionController.updateCaption(message.text);
+                }).catch(error => {
+                    console.error("메시지 전송 오류:", error);
+                });
+
+
                 // this.showSubtitle(message.text);
                 // this.updateCaption(message.text);
             case 'error':

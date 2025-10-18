@@ -1,3 +1,5 @@
+import ttsController from './ttsController.js';
+
 class CaptionController {
     constructor() {
         this.captionScript = [];

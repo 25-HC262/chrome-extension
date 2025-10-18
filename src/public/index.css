@@ -1,4 +1,4 @@
-/* General panel styling */
+/* General capture panel styling */
 .capture-panel {
     position: fixed;
     right: 20px;
@@ -12,6 +12,27 @@
     overflow: hidden;
     z-index: 1000;
 }
+
+/* General script panel styling */
+#script-panel {
+    top: auto;
+    left: 20px;
+    bottom: 20px;
+    font-family: Arial, sans-serif;
+    position: fixed;
+    width: 300px;
+    height: 200px;
+    overflow: auto;
+    background-color: rgba(0, 0, 0, 0.7);
+    color: #fff;
+    padding: 10px;
+    font-size: 14px;
+    border-radius: 8px;
+    z-index: 9999;
+    resize: both;
+    box-sizing: border-box;
+}
+
 
 /* Title bar and drag handle */
 .panel-title {
@@ -49,8 +70,15 @@
     padding: 16px;
 }
 
+/* Script styling */
+.script-container {
+    margin-bottom: 16px;
+}
+
 /* User list styling */
 .user-list-container {
+    padding-top: 16px;
+    border-top: 1px solid #eee;
     margin-bottom: 16px;
 }
 
@@ -76,6 +104,7 @@
     padding: 8px 16px;
     border-radius: 4px;
     cursor: pointer;
+    margin-left: 8px;
     margin-right: 8px;
     font-weight: 500;
     transition: background-color 0.2s;
@@ -127,4 +156,20 @@
 .status-error {
     color: #d93025;
     background-color: #fce8e6;
+}
+
+/* Caption style */
+#sign-caption {
+    position: fixed;
+    top: auto;
+    bottom: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: rgba(0, 0, 0, 0.7);
+    color: white;
+    font-size: 24px;
+    padding: 8px 16px;
+    border-radius: 8px;
+    z-index: 9999;
+    font-family: sans-serif;
 }

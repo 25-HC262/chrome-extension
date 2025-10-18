@@ -1,5 +1,6 @@
 
 import streamController from './streamController.js';
+import captionController from './captionController.js';
 // import panelHTML from '../public/index.html';
 // const streamController = require('/src/controllers/streamController.js');
 
@@ -19,6 +20,9 @@ class PanelController {
         
         this.captureStatus = null;
         this.captionDiv = null;
+        
+        this.scriptCheckbox = null;
+        this.scriptPanel = null;
     }
 
     async createControlPanel() {
@@ -33,6 +37,8 @@ class PanelController {
             //     throw new Error('Failed to load index.html: ',response.statusText);
             // }
             // const panelHTML = await response.text();
+
+
             const panelHTML = `
                     <div id="capture-panel" class="capture-panel">
                         <div class="panel-title" style="cursor: move;">
@@ -40,6 +46,10 @@ class PanelController {
                             <button id="minimize-button" title="최소화">-</button>
                         </div>
                         <div class="panel-content">
+                            <div class="script-container">
+                                <input type="checkbox" id="is-script">
+                                <label for="is-script">자막 스크립트 표시</label>
+                            </div>
                             <div class="user-list-container">
                                 <div class="list-title" style="margin-bottom: 10px; font-weight: 500; color: #333;">
                                     참가자 목록
@@ -64,7 +74,12 @@ class PanelController {
                         </div>
                     </div>`
 
-
+            // const panelURL = chrome.runtime.getURL('src/public/index.html');
+            // console.log("@#@#@ panelURL: ",panelURL);
+            // const response = await fetch(panelURL);
+            // console.log("@#@#@ response: ",response);
+            // const panelHTML = await response.text();
+            // console.log("@#@#@ panelHTML: ",panelHTML);
 
             // Convert HTML string into DOM 
             const tempDiv = document.createElement('div');
@@ -91,7 +106,9 @@ class PanelController {
         this.startTranslateButton = this.panelElement.querySelector('#start-translate-button');
         this.stopTranslateButton = this.panelElement.querySelector('#stop-translate-button');
         this.captureStatus = this.panelElement.querySelector('#capture-status');
-        this.captionDiv = this.panelElement.querySelector('#caption-div')        
+        this.captionDiv = this.panelElement.querySelector('#caption-div') 
+        this.scriptCheckbox = this.panelElement.querySelector('#is-script'); 
+        this.scriptPanel = document.getElementById('script-panel'); 
     }
 
     attachEventListeners() {
@@ -99,7 +116,8 @@ class PanelController {
         this.stopTranslateButton.addEventListener('click', () => streamController.stopStreaming()); 
         this.minimizeButton.addEventListener('click', (e) => this.toggleMinimize(e));
         this.titleElement.addEventListener('mousedown', (e) => this.startDrag(e));
-        
+        this.scriptCheckbox.addEventListener('change', () => this.toggleScript());
+
         document.addEventListener('mousemove', (e) => this.dragPanel(e));
         document.addEventListener('mouseup', () => this.stopDrag());
     }
@@ -109,6 +127,24 @@ class PanelController {
         let isMinimized = this.panelContent.style.display === 'none';
         this.panelContent.style.display = isMinimized ? '' : 'none';
         this.minimizeButton.textContent = isMinimized ? '+' : '-';
+    }
+
+    toggleScript() { 
+        if (!this.scriptCheckbox) {
+            console.error(`script checkbox doesn't exist.`);
+            return;
+        }
+
+        const isChecked = this.scriptCheckbox.checked;
+        if (isChecked) {
+            if (!this.scriptPanel) {
+                captionController.createCaptionScript();
+                this.getElement();
+            }
+            this.scriptPanel.style.display ='';
+        } else {
+            this.scriptPanel.style.display = 'none';
+        }
     }
 
     startDrag(e) {

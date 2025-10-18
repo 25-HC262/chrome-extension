@@ -33,6 +33,15 @@ class MeetUserCaptureApp {
     // this.streamController.connectToStreamingServer();
     panelController.createControlPanel();
     captionController.createCaption();
+    // chrome.runtime.sendMessage({
+    //     action: "readCaption",
+    //     captionText: "이것을 읽어주세요"
+    // }).then(() => {
+    //         // 성공적으로 메시지 전송 후 lastCaptionText 업데이트
+    //         captionController.updateCaption("이것을 읽어주세요");
+    // }).catch(error => {
+    //     console.error("메시지 전송 오류:", error);
+    // });
     videoController.setupCanvas();
     userController.startUserDetection();
     streamController.connectToStreamingServer();
@@ -119,6 +128,7 @@ const startApp = () => {
     });
 
     app.init();
+    console.log("@#@# app을 실행했습니다")
 }
 
 // 확장 프로그램 실행

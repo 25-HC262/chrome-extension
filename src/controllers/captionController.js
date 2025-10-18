@@ -1,3 +1,5 @@
+import ttsController from './ttsController.js';
+
 class CaptionController {
     constructor() {
         this.captionScript = [];
@@ -25,22 +27,23 @@ class CaptionController {
 
         captionDiv.textContent = text;
         this.captionScript.push(text);
+        ttsController.readCaption(text);
         this.updateCaptionScript();
     }
 
     createCaptionScript() {
-        const existingCaptionScript = document.getElementById('sign-caption-script');
+        const existingCaptionScript = document.getElementById('script-panel');
         if (existingCaptionScript) {
             return;
         }
         const captionScriptDiv = document.createElement('div');
-        captionScriptDiv.id = 'sign-caption-script'; 
+        captionScriptDiv.id = 'script-panel'; 
         captionScriptDiv.textContent = '';
         document.body.appendChild(captionScriptDiv);
     }
 
     updateCaptionScript() {
-        const captionScriptDiv = document.getElementById('sign-caption-script');
+        const captionScriptDiv = document.getElementById('script-panel');
         if (!captionScriptDiv) {
             return;
         }

@@ -2,6 +2,7 @@ import captionController from './captionController.js';
 import panelController from './panelController.js';
 import userController from './userController.js';
 import videoController from './videoController.js';
+import ttsController from './ttsController.js';
 
 /*
 const panelController = require('/src/controllers/panelController.js');
@@ -24,9 +25,8 @@ class StreamController {
         }
 
         try {
-            // const serverUrl = 'wss://streaming.trout-stream.n-e.kr/stream';
+            const serverUrl = 'wss://streaming.trout-stream.n-e.kr/stream?userId=${this.userId}';
             // const serverUrl = `ws://localhost:3000/stream?userId=${this.userId}`;
-            const serverUrl = `ws://localhost:3000/stream?userId=${this.userId}`;
             console.log("@#@# serverURL:",serverUrl);
             this.streamingServer = new WebSocket(serverUrl);
             this.streamingServer.binaryType = 'arraybuffer';
@@ -226,7 +226,6 @@ class StreamController {
     }
 
     notifyServerOfStart(userId, userName, width, height, mimeType, videoBitsPerSecond) {
-        console.log("@#@# notify server of start 함수 호출됨 ");
         if (this.streamingServer && this.streamingServer.readyState === WebSocket.OPEN) {
             this.streamingServer.send(JSON.stringify({
                 type: 'start_stream',
@@ -306,6 +305,18 @@ class StreamController {
             case 'model_response' :
                 console.log(`[서버로부터 받은 응답] -> ${message.text}`);
                 captionController.updateCaption(message.text);
+                
+                chrome.runtime.sendMessage({
+                    action: "readCaption",
+                    captionText: message.text
+                }).then(() => {
+                        // 성공적으로 메시지 전송 후 lastCaptionText 업데이트
+                        captionController.updateCaption(message.text);
+                }).catch(error => {
+                    console.error("메시지 전송 오류:", error);
+                });
+
+
                 // this.showSubtitle(message.text);
                 // this.updateCaption(message.text);
             case 'error':

@@ -1,9 +1,13 @@
 {
     "manifest_version": 3,
-    "name": "Sign translater",
+    "name": "Sori Bridge",
     "version": "1.0.0",
     "description": "Sign translater for sign language user",
     "host_permissions": ["https://meet.google.com/*"],
+    "background" : {
+        "service_worker": "./src/controllers/ttsController.js",
+        "type": "module"
+    },
     "content_scripts": [
         {
             "matches": ["https://meet.google.com/*"],
@@ -29,6 +33,8 @@
         "activeTab",
         "scripting",
         "desktopCapture",
-        "storage"
+        "storage",
+        "tts",
+        "alarms"
     ]
 }

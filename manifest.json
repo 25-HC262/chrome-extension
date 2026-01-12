@@ -31,7 +31,6 @@
     ],
     "permissions": [
         "activeTab",
-        "scripting",
         "desktopCapture",
         "storage",
         "tts",

@@ -1,10 +1,17 @@
 {
-  "dependencies": {
-    "@googleworkspace/meet-addons": "^1.2.0"
+  "name": "chrome-extension",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.28.2",
   "devDependencies": {
-    "webpack": "^5.99.8",
-    "webpack-cli": "^6.0.1"
-  },
-  "type": "module"
+    "@crxjs/vite-plugin": "2.0.0-beta.33",
+    "vite": "^7.3.1"
+  }
 }

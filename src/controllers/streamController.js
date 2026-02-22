@@ -25,7 +25,8 @@ class StreamController {
         }
 
         try {
-            const serverUrl = 'wss://streaming.trout-stream.n-e.kr/stream?userId=${this.userId}';
+            const serverURL = ''
+            // const serverUrl = 'wss://streaming.trout-stream.n-e.kr/stream?userId=${this.userId}';
             // const serverUrl = `ws://localhost:3000/stream?userId=${this.userId}`;
             console.log("@#@# serverURL:",serverUrl);
             this.streamingServer = new WebSocket(serverUrl);

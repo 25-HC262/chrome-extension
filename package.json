@@ -7,5 +7,9 @@
     "webpack": "^5.101.3",
     "webpack-cli": "^6.0.1"
   },
-  "type": "module"
+  "type": "module",
+  "scripts": {
+    "build": "webpack --mode production",
+    "start": "node src/index.js"
+  }
 }

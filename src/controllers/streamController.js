@@ -25,8 +25,8 @@ class StreamController {
         }
 
         try {
-            const serverUrl = 'wss://streaming.trout-stream.n-e.kr/stream?userId=${this.userId}';
-            // const serverUrl = `ws://localhost:3000/stream?userId=${this.userId}`;
+            // const serverUrl = `wss://streaming.trout-stream.n-e.kr/stream?userId=${this.userId}`;
+            const serverUrl = `ws://localhost:3000/stream?userId=${this.userId}`;
             console.log("@#@# serverURL:",serverUrl);
             this.streamingServer = new WebSocket(serverUrl);
             this.streamingServer.binaryType = 'arraybuffer';
@@ -115,20 +115,16 @@ class StreamController {
         }
         
         try {
-            const { canvas, stream } = this.prepareVideoStream(video);
-            const { chosenMimeType, videoBitsPerSecond, recorderOptions } = this.getRecorderOptions();
-            const { recorder, drawFrameId } = this.startRecorderAndDrawing(video, canvas, stream, recorderOptions, userId, chosenMimeType);
+            const { canvas } = this.prepareVideoStream(video);
+            const intervalId = this.startFrameSending(video, canvas, userId);
 
             this.streamingUsers.set(userId, {
-                stream,
                 canvas,
-                ctx: canvas.getContext('2d'),
                 video,
-                recorder,
-                drawFrameId,
+                intervalId,
             });
 
-            this.notifyServerOfStart(userId, user.name, canvas.width, canvas.height, chosenMimeType, videoBitsPerSecond);
+            this.notifyServerOfStart(userId, user.name, canvas.width, canvas.height);
         } catch (error) {
             console.error(`Error starting stream for user ${userId}:`, error);
         }
@@ -136,49 +132,24 @@ class StreamController {
 
     prepareVideoStream(video) {
         const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        
+
         const sourceWidth = video.videoWidth;
         const sourceHeight = video.videoHeight;
         const targetMaxWidth = 640;
         const scale = Math.min(1, targetMaxWidth / (sourceWidth || 1));
         const targetWidth = Math.max(1, Math.round((sourceWidth || 1) * scale));
         const targetHeight = Math.max(1, Math.round((sourceHeight || 1) * scale));
-        
+
         canvas.width = targetWidth;
         canvas.height = targetHeight;
-        
-        const stream = canvas.captureStream(30);
-        console.log("@#@# video is ready (canvas, stream) : ",!!canvas, !!stream);
-        return { canvas, stream };
+
+        return { canvas };
     }
 
-    getRecorderOptions() {
-        const preferredMimeTypes = [
-            'video/webm;codecs=vp9',
-            'video/webm;codecs=vp8',
-            'video/webm',
-        ];
-        const chosenMimeType = preferredMimeTypes.find((t) => {
-            try {
-                return window.MediaRecorder && MediaRecorder.isTypeSupported(t);
-            } catch (_) {
-                return false;
-            }
-        }) || 'video/webm';
-
-        const videoBitsPerSecond = 800000;
-        const recorderOptions = {
-            mimeType: chosenMimeType,
-            videoBitsPerSecond,
-        };
-        
-        return { chosenMimeType, videoBitsPerSecond, recorderOptions };
-    }
-
-    startRecorderAndDrawing(video, canvas, stream, recorderOptions, userId, chosenMimeType) {
+    startFrameSending(video, canvas, userId) {
         const ctx = canvas.getContext('2d');
-        const draw = () => {
+        const intervalId = setInterval(() => {
+            if (!this.streamingServer || this.streamingServer.readyState !== WebSocket.OPEN) return;
             try {
                 if (video.videoWidth > 0 && video.videoHeight > 0) {
                     ctx.save();
@@ -186,46 +157,22 @@ class StreamController {
                     ctx.drawImage(video, -canvas.width, 0, canvas.width, canvas.height);
                     ctx.restore();
                 }
+                canvas.toBlob((blob) => {
+                    if (!blob || !this.streamingServer || this.streamingServer.readyState !== WebSocket.OPEN) return;
+                    blob.arrayBuffer().then(buffer => {
+                        if (this.streamingServer && this.streamingServer.readyState === WebSocket.OPEN) {
+                            this.streamingServer.send(buffer);
+                        }
+                    });
+                }, 'image/jpeg', 0.7);
             } catch (e) {
-                console.warn(`Draw error for user ${userId}:`, e);
-            } finally {
-                const streamData = this.streamingUsers.get(userId);
-                streamData.drawFrameId = requestAnimationFrame(draw);
+                console.warn(`Frame capture error for user ${userId}:`, e);
             }
-        };
-        const drawFrameId = requestAnimationFrame(draw);
-        const recorder = new MediaRecorder(stream, recorderOptions);
-        
-        recorder.ondataavailable = (event) => {
-            if (!event.data || event.data.size == null || event.data.size === 0) {
-                console.warn(`Skipping empty chunk for user ${userId}`);
-                return;
-            }
-            if (!this.streamingServer || this.streamingServer.readyState !== WebSocket.OPEN) {
-                return;
-            }
-            
-            // this.streamingServer.send(JSON.stringify({
-            //     type: 'video_chunk',
-            //     userId,
-            //     timestamp: Date.now(),
-            //     size: event.data.size,
-            //     mimeType: recorder.mimeType || chosenMimeType || 'video/webm',
-            // }));
-            console.log("@#@# 데이터를 보냄 : ",!!event.data);
-            this.streamingServer.send(event.data);
-        };
-
-        recorder.onerror = (err) => console.error(`MediaRecorder error for user ${userId}:`, err);
-        recorder.onstart = () => console.log(`MediaRecorder started for user ${userId}`);
-        recorder.onstop = () => console.log(`MediaRecorder stopped for user ${userId}`);
-        
-        recorder.start(1000); // Emit chunks every 1000ms
-        
-        return { recorder, drawFrameId };
+        }, 100); // ~10fps
+        return intervalId;
     }
 
-    notifyServerOfStart(userId, userName, width, height, mimeType, videoBitsPerSecond) {
+    notifyServerOfStart(userId, userName, width, height) {
         if (this.streamingServer && this.streamingServer.readyState === WebSocket.OPEN) {
             this.streamingServer.send(JSON.stringify({
                 type: 'start_stream',
@@ -233,11 +180,10 @@ class StreamController {
                 userName: userName || userId,
                 width,
                 height,
-                fps: 30,
-                mimeType: mimeType || undefined,
-                videoBitsPerSecond,
+                fps: 10,
+                mimeType: 'image/jpeg',
             }));
-            console.log(`Started streaming user ${userId} with MediaRecorder (${mimeType}) at ${videoBitsPerSecond}bps`);
+            console.log(`Started streaming user ${userId} with JPEG frames at 10fps`);
         }
     }
 
@@ -266,21 +212,8 @@ class StreamController {
             return;
         }
 
-        if (streamData.drawFrameId) {
-            cancelAnimationFrame(streamData.drawFrameId);
-            streamData.drawFrameId = null;
-        }
-
-        if (streamData.recorder && streamData.recorder.state !== 'inactive') {
-            try {
-                streamData.recorder.stop();
-            } catch (_) {
-
-            }
-        }
-
-        if (streamData.stream) {
-            streamData.stream.getTracks().forEach(track => track.stop());
+        if (streamData.intervalId) {
+            clearInterval(streamData.intervalId);
         }
 
         if (this.streamingServer && this.streamingServer.readyState === WebSocket.OPEN) {

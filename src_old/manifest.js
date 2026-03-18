@@ -6,13 +6,14 @@ export default {
   host_permissions: ['https://meet.google.com/*'],
   permissions: ['activeTab', 'scripting', 'desktopCapture', 'storage'],
   background: {
-    service_worker: 'src/app/background.ts',
+    service_worker: 'src/background.js',
     type: 'module',
   },
   content_scripts: [
     {
       matches: ['https://meet.google.com/*'],
-      js: ['src/app/index.ts'],
+      js: ['src/content-main.js'],
+      css: ['src/css/caption.css', 'src/css/video.css'],
       run_at: 'document_idle',
     },
   ],

@@ -27,7 +27,6 @@ class MeetUserCapture {
     this.createControlPanel(); 
     this.setupCanvas(); 
     this.startUserDetection();
-    console.log('Meet User Capture Extension initialized');
   }
 
   // Create control panel UI 
@@ -241,7 +240,6 @@ class MeetUserCapture {
       });
       
       checkbox.addEventListener('change', (e) => {
-        console.log('checkbox changed:', user.id, e.target.checked);
         this.toggleUserSelection(user.id, e.target.checked);
       });
 
@@ -449,7 +447,6 @@ class MeetUserCapture {
     }
 
     this.updateStatus(`캡처 중지됨 (총 ${this.captureCount}회 캡처)`);
-    console.log('Capture stopped');
   }
 
   updateControlButtons() {
@@ -475,7 +472,6 @@ class MeetUserCapture {
 
 // 확장프로그램 초기화
 if (window.location.href.includes('landing')) {
-  console.log("Main page : video is not displayed");
 } else {
   try {
     new MeetUserCapture();

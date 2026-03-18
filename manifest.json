@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Sign Translator",
-  "version": "2.0.0",
+  "version": "1.0.0",
   "description": "Sign translator for sign language user",
   "host_permissions": [
     "https://meet.google.com/*"
@@ -13,18 +13,13 @@
     "storage"
   ],
   "background": {
-    "service_worker": "src/background.js",
+    "service_worker": "src/app/background.ts",
     "type": "module"
   },
   "content_scripts": [
     {
       "matches": ["https://meet.google.com/*"],
-      "css": ["src/css/caption.css", "src/css/video.css"],
-      "js": [
-        "src/js/caption.js", 
-        "src/js/video.js", 
-        "src/content-main.js"
-      ],
+      "js": ["src/app/index.ts"],
       "run_at": "document_idle"
     }
   ]

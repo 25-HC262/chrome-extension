@@ -70,7 +70,6 @@ function addUserSelectButton() {
 
   newItem.addEventListener('click', (e) => {
     e.stopPropagation();
-    console.log('유저 선택됨');
   });
 
   menu.appendChild(newItem);
@@ -88,7 +87,6 @@ observer.observe(document.body, {
 
 
 if (window.location.href.includes('landing')) {
-  console.log("Main page : caption is not displayed");
 } else {  
 
   createCaption();

@@ -22,10 +22,13 @@ export class StreamController {
   private caption = createCaptionOverlay()
   private serverUrl: string
   private frameTimers = new Map<string, number>()
+  private frameCanvases = new Map<string, { canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D }>()
   private fps = 10
 
   constructor(options: StreamControllerOptions = {}) {
     this.userId = options.userId ?? getStableUserId()
+    // 스트리밍 서버 URL에 userId를 실제로 삽입합니다.
+    // 따옴표 실수로 템플릿이 깨지지 않도록 백틱을 사용합니다.
     this.serverUrl = options.serverUrl ?? `ws://localhost:3000/stream?userId=${this.userId}`
     logger.debug('stream:init', { userId: this.userId, serverUrl: this.serverUrl })
   }
@@ -95,6 +98,8 @@ export class StreamController {
     if (timer == null) return
     clearInterval(timer)
     this.frameTimers.delete(userId)
+    this.frameCanvases.delete(userId)
+    this.sendStopStream(userId)
     logger.debug('stream:frame:stop', { userId })
   }
 
@@ -110,35 +115,73 @@ export class StreamController {
     )
   }
 
+  private sendStopStream(userId: string) {
+    if (!this.streamingServer || this.streamingServer.readyState !== WebSocket.OPEN) return
+    this.streamingServer.send(JSON.stringify({ type: 'stop_stream', userId }))
+  }
+
   private async sendCurrentFrame(video: HTMLVideoElement, userId: string) {
     if (!this.streamingServer || this.streamingServer.readyState !== WebSocket.OPEN) return
     const width = video.videoWidth || video.clientWidth
     const height = video.videoHeight || video.clientHeight
     if (width <= 0 || height <= 0) return
 
-    const canvas = document.createElement('canvas')
-    canvas.width = width
-    canvas.height = height
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
+    const canvasPair = this.getCanvasForUser(userId, width, height)
+    if (!canvasPair) return
+    const { canvas, ctx } = canvasPair
 
     ctx.drawImage(video, 0, 0, width, height)
     const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.7))
     if (!blob) return
     const buffer = await blob.arrayBuffer()
 
-    this.streamingServer.send(buffer)
+    // 바이너리 프레임 앞에 userId 헤더를 붙여 전송합니다.
+    // [4 bytes length][N bytes UTF-8 userId][JPEG bytes]
+    const payload = this.packFrameWithUserId(userId, new Uint8Array(buffer))
+    this.streamingServer.send(payload)
     logger.debug('stream:frame:sent', { userId, bytes: buffer.byteLength })
+  }
+
+  private getCanvasForUser(userId: string, width: number, height: number) {
+    const existing = this.frameCanvases.get(userId)
+    if (existing) {
+      if (existing.canvas.width !== width) existing.canvas.width = width
+      if (existing.canvas.height !== height) existing.canvas.height = height
+      return existing
+    }
+
+    const canvas = document.createElement('canvas')
+    canvas.width = width
+    canvas.height = height
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return null
+    const pair = { canvas, ctx }
+    this.frameCanvases.set(userId, pair)
+    return pair
+  }
+
+  // userId와 JPEG 바이트를 프로토콜 형태로 합칩니다.
+  // 서버가 사용자별로 시퀀스를 분리할 수 있게 합니다.
+  private packFrameWithUserId(userId: string, jpegBytes: Uint8Array): ArrayBuffer {
+    const userIdBytes = new TextEncoder().encode(userId)
+    const header = new ArrayBuffer(4)
+    new DataView(header).setUint32(0, userIdBytes.byteLength, false)
+
+    const out = new Uint8Array(4 + userIdBytes.byteLength + jpegBytes.byteLength)
+    out.set(new Uint8Array(header), 0)
+    out.set(userIdBytes, 4)
+    out.set(jpegBytes, 4 + userIdBytes.byteLength)
+    return out.buffer
   }
 
   private handleServerMessage(message: ServerMessage) {
     switch (message.type) {
       case 'model_response': {
-        const text = (message as { text: string }).text
-        logger.debug('stream:model_response', { textPreview: text?.slice?.(0, 50) })
+        const { text, userId } = message as { text: string; userId?: string }
+        logger.debug('stream:model_response', { userId, textPreview: text?.slice?.(0, 50) })
         this.caption.setText(text)
-        this.caption.appendScriptLine(text)
-        void chrome.runtime.sendMessage({ action: 'readCaption', captionText: text }).catch(() => {})
+        this.caption.appendScriptLine(userId ? `[${userId}] ${text}` : text)
+        void chrome.runtime.sendMessage({ action: 'readCaption', captionText: text, userId }).catch(() => {})
         break
       }
       case 'error':

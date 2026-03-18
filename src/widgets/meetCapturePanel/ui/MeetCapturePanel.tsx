@@ -277,15 +277,15 @@ export function createMeetCapturePanel(): MeetCapturePanelApi {
   let captureTimer: number | null = null
   let captureCount = 0
 
-  const saveUserCapture = (dataURL: string, userName: string, timestamp: string) => {
-    const link = document.createElement('a')
-    link.download = `meet-${userName}-${timestamp}.png`
-    link.href = dataURL
-    link.style.display = 'none'
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-  }
+  // const saveUserCapture = (dataURL: string, userName: string, timestamp: string) => {
+  //   const link = document.createElement('a')
+  //   link.download = `meet-${userName}-${timestamp}.png`
+  //   link.href = dataURL
+  //   link.style.display = 'none'
+  //   document.body.appendChild(link)
+  //   link.click()
+  //   document.body.removeChild(link)
+  // }
 
   // 선택된 참가자의 현재 프레임을 캡처하여 PNG로 저장합니다.
   // 캔버스 하나를 재사용해 메모리 사용량을 일정하게 유지합니다.
@@ -307,7 +307,7 @@ export function createMeetCapturePanel(): MeetCapturePanelApi {
       canvas.height = height
       ctx.drawImage(video, 0, 0, width, height)
       const dataURL = canvas.toDataURL('image/png', 0.8)
-      saveUserCapture(dataURL, user.name || userId, timestamp)
+      // saveUserCapture(dataURL, user.name || userId, timestamp)
       capturedCount++
     })
 

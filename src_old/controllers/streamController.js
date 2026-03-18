@@ -116,23 +116,20 @@ class StreamController {
         }
         
         try {
-            const { canvas } = this.prepareVideoStream(video);
-            // const { chosenMimeType, videoBitsPerSecond, recorderOptions } = this.getRecorderOptions();
-            // const { recorder, drawFrameId } = this.startRecorderAndDrawing(video, canvas, stream, recorderOptions, userId, chosenMimeType);
-            const intervalId = this.startFrameSending(video, canvas, userId);
+            const { canvas, stream } = this.prepareVideoStream(video);
+            const { chosenMimeType, videoBitsPerSecond, recorderOptions } = this.getRecorderOptions();
+            const { recorder, drawFrameId } = this.startRecorderAndDrawing(video, canvas, stream, recorderOptions, userId, chosenMimeType);
 
             this.streamingUsers.set(userId, {
-                // stream,
+                stream,
                 canvas,
-                // ctx: canvas.getContext('2d'),
+                ctx: canvas.getContext('2d'),
                 video,
-                // recorder,
-                // drawFrameId,
-                intervalId,
+                recorder,
+                drawFrameId,
             });
 
-            // this.notifyServerOfStart(userId, user.name, canvas.width, canvas.height, chosenMimeType, videoBitsPerSecond);
-            this.notifyServerOfStart(userId, user.name, canvas.width, canvas.height);
+            this.notifyServerOfStart(userId, user.name, canvas.width, canvas.height, chosenMimeType, videoBitsPerSecond);
         } catch (error) {
             console.error(`Error starting stream for user ${userId}:`, error);
         }
@@ -140,7 +137,7 @@ class StreamController {
 
     prepareVideoStream(video) {
         const canvas = document.createElement('canvas');
-        // const ctx = canvas.getContext('2d');
+        const ctx = canvas.getContext('2d');
         
         const sourceWidth = video.videoWidth;
         const sourceHeight = video.videoHeight;
@@ -152,39 +149,37 @@ class StreamController {
         canvas.width = targetWidth;
         canvas.height = targetHeight;
         
-        // const stream = canvas.captureStream(30);
-        // console.log("@#@# video is ready (canvas, stream) : ",!!canvas, !!stream);
-        // return { canvas, stream };
-        return { canvas };
+        const stream = canvas.captureStream(30);
+        console.log("@#@# video is ready (canvas, stream) : ",!!canvas, !!stream);
+        return { canvas, stream };
     }
 
-    // getRecorderOptions() {
-    //     const preferredMimeTypes = [
-    //         'video/webm;codecs=vp9',
-    //         'video/webm;codecs=vp8',
-    //         'video/webm',
-    //     ];
-    //     const chosenMimeType = preferredMimeTypes.find((t) => {
-    //         try {
-    //             return window.MediaRecorder && MediaRecorder.isTypeSupported(t);
-    //         } catch (_) {
-    //             return false;
-    //         }
-    //     }) || 'video/webm';
+    getRecorderOptions() {
+        const preferredMimeTypes = [
+            'video/webm;codecs=vp9',
+            'video/webm;codecs=vp8',
+            'video/webm',
+        ];
+        const chosenMimeType = preferredMimeTypes.find((t) => {
+            try {
+                return window.MediaRecorder && MediaRecorder.isTypeSupported(t);
+            } catch (_) {
+                return false;
+            }
+        }) || 'video/webm';
 
-    //     const videoBitsPerSecond = 800000;
-    //     const recorderOptions = {
-    //         mimeType: chosenMimeType,
-    //         videoBitsPerSecond,
-    //     };
+        const videoBitsPerSecond = 800000;
+        const recorderOptions = {
+            mimeType: chosenMimeType,
+            videoBitsPerSecond,
+        };
         
-    //     return { chosenMimeType, videoBitsPerSecond, recorderOptions };
-    // }
+        return { chosenMimeType, videoBitsPerSecond, recorderOptions };
+    }
 
-    startFrameSending(video, canvas, userId) {
+    startRecorderAndDrawing(video, canvas, stream, recorderOptions, userId, chosenMimeType) {
         const ctx = canvas.getContext('2d');
-        const intervalId = setInterval(() => {
-            if (!this.streamingServer || this.streamingServer.readyState !== WebSocket.OPEN) return;
+        const draw = () => {
             try {
                 if (video.videoWidth > 0 && video.videoHeight > 0) {
                     ctx.save();
@@ -192,53 +187,46 @@ class StreamController {
                     ctx.drawImage(video, -canvas.width, 0, canvas.width, canvas.height);
                     ctx.restore();
                 }
-                canvas.toBlob((blob) => {
-                    if (!blob || !this.streamingServer || this.streamingServer.readyState !== WebSocket.OPEN) return;
-                    blob.arrayBuffer().then(buffer => {
-                        if (this.streamingServer && this.streamingServer.readyState === WebSocket.OPEN) {
-                            this.streamingServer.send(buffer);
-                        }
-                    });
-                }, 'image/jpeg', 0.7);
             } catch (e) {
-                console.warn(`Frame capture error for user ${userId}:`, e);
-            } 
-        }, 100); // ~10fps
-            return intervalId;
-
-        // const drawFrameId = requestAnimationFrame(draw);
-        // const recorder = new MediaRecorder(stream, recorderOptions);
+                console.warn(`Draw error for user ${userId}:`, e);
+            } finally {
+                const streamData = this.streamingUsers.get(userId);
+                streamData.drawFrameId = requestAnimationFrame(draw);
+            }
+        };
+        const drawFrameId = requestAnimationFrame(draw);
+        const recorder = new MediaRecorder(stream, recorderOptions);
         
-        // recorder.ondataavailable = (event) => {
-        //     if (!event.data || event.data.size == null || event.data.size === 0) {
-        //         console.warn(`Skipping empty chunk for user ${userId}`);
-        //         return;
-        //     }
-        //     if (!this.streamingServer || this.streamingServer.readyState !== WebSocket.OPEN) {
-        //         return;
-        //     }
+        recorder.ondataavailable = (event) => {
+            if (!event.data || event.data.size == null || event.data.size === 0) {
+                console.warn(`Skipping empty chunk for user ${userId}`);
+                return;
+            }
+            if (!this.streamingServer || this.streamingServer.readyState !== WebSocket.OPEN) {
+                return;
+            }
             
-        //     // this.streamingServer.send(JSON.stringify({
-        //     //     type: 'video_chunk',
-        //     //     userId,
-        //     //     timestamp: Date.now(),
-        //     //     size: event.data.size,
-        //     //     mimeType: recorder.mimeType || chosenMimeType || 'video/webm',
-        //     // }));
-        //     console.log("@#@# 데이터를 보냄 : ",!!event.data);
-        //     this.streamingServer.send(event.data);
-        // };
+            // this.streamingServer.send(JSON.stringify({
+            //     type: 'video_chunk',
+            //     userId,
+            //     timestamp: Date.now(),
+            //     size: event.data.size,
+            //     mimeType: recorder.mimeType || chosenMimeType || 'video/webm',
+            // }));
+            console.log("@#@# 데이터를 보냄 : ",!!event.data);
+            this.streamingServer.send(event.data);
+        };
 
-        // recorder.onerror = (err) => console.error(`MediaRecorder error for user ${userId}:`, err);
-        // recorder.onstart = () => console.log(`MediaRecorder started for user ${userId}`);
-        // recorder.onstop = () => console.log(`MediaRecorder stopped for user ${userId}`);
+        recorder.onerror = (err) => console.error(`MediaRecorder error for user ${userId}:`, err);
+        recorder.onstart = () => console.log(`MediaRecorder started for user ${userId}`);
+        recorder.onstop = () => console.log(`MediaRecorder stopped for user ${userId}`);
         
-        // recorder.start(1000); // Emit chunks every 1000ms
+        recorder.start(1000); // Emit chunks every 1000ms
         
-        // return { recorder, drawFrameId };
+        return { recorder, drawFrameId };
     }
 
-    notifyServerOfStart(userId, userName, width, height) {
+    notifyServerOfStart(userId, userName, width, height, mimeType, videoBitsPerSecond) {
         if (this.streamingServer && this.streamingServer.readyState === WebSocket.OPEN) {
             this.streamingServer.send(JSON.stringify({
                 type: 'start_stream',
@@ -246,10 +234,11 @@ class StreamController {
                 userName: userName || userId,
                 width,
                 height,
-                fps: 10,
-                mimeType: 'image/jpeg',
+                fps: 30,
+                mimeType: mimeType || undefined,
+                videoBitsPerSecond,
             }));
-            console.log(`Started streaming user ${userId} with JPEG frames at 10fps`);
+            console.log(`Started streaming user ${userId} with MediaRecorder (${mimeType}) at ${videoBitsPerSecond}bps`);
         }
     }
 
@@ -278,25 +267,21 @@ class StreamController {
             return;
         }
 
-        // if (streamData.drawFrameId) {
-        //     cancelAnimationFrame(streamData.drawFrameId);
-        //     streamData.drawFrameId = null;
-        // }
+        if (streamData.drawFrameId) {
+            cancelAnimationFrame(streamData.drawFrameId);
+            streamData.drawFrameId = null;
+        }
 
-        // if (streamData.recorder && streamData.recorder.state !== 'inactive') {
-        //     try {
-        //         streamData.recorder.stop();
-        //     } catch (_) {
+        if (streamData.recorder && streamData.recorder.state !== 'inactive') {
+            try {
+                streamData.recorder.stop();
+            } catch (_) {
 
-        //     }
-        // }
+            }
+        }
 
-        // if (streamData.stream) {
-        //     streamData.stream.getTracks().forEach(track => track.stop());
-        // }
-
-        if (streamData.intervalId) {
-            clearInterval(streamData.intervalId);
+        if (streamData.stream) {
+            streamData.stream.getTracks().forEach(track => track.stop());
         }
 
         if (this.streamingServer && this.streamingServer.readyState === WebSocket.OPEN) {

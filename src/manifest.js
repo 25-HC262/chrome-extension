@@ -1,0 +1,21 @@
+export default {
+  manifest_version: 3,
+  name: 'Sign Translator',
+  version: '1.0.0',
+  description: 'Sign translator for sign language user',
+  host_permissions: ['https://meet.google.com/*'],
+  permissions: ['activeTab', 'scripting', 'desktopCapture', 'storage'],
+  background: {
+    service_worker: 'src/background.js',
+    type: 'module',
+  },
+  content_scripts: [
+    {
+      matches: ['https://meet.google.com/*'],
+      js: ['src/content-main.js'],
+      css: ['src/css/caption.css', 'src/css/video.css'],
+      run_at: 'document_idle',
+    },
+  ],
+}
+

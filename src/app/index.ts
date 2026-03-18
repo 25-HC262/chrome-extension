@@ -27,6 +27,26 @@ export function bootstrapContent() {
     const stream = new StreamController()
     void stream.connect()
     logger.debug('bootstrap:stream:connect-called')
+
+    // 선택된 사용자 목록을 주기적으로 동기화합니다.
+    // 선택/해제에 맞춰 프레임 전송을 시작/중지합니다.
+    let prev = new Set<string>()
+    window.setInterval(() => {
+      const now = new Set(panel.getSelectedUserIds())
+
+      for (const userId of now) {
+        if (!prev.has(userId)) {
+          stream.startUserStreaming(userId, () => panel.getUserVideo(userId))
+        }
+      }
+      for (const userId of prev) {
+        if (!now.has(userId)) {
+          stream.stopUserStreaming(userId)
+        }
+      }
+
+      prev = now
+    }, 500)
   } catch (error) {
     logger.error('bootstrap:failed', error)
   }

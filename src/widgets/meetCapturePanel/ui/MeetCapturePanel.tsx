@@ -11,6 +11,8 @@ type MeetUser = {
 
 type MeetCapturePanelApi = {
   start: () => void
+  getSelectedUserIds: () => string[]
+  getUserVideo: (userId: string) => HTMLVideoElement | null
 }
 
 function findAllVideoElements(): HTMLVideoElement[] {
@@ -166,6 +168,7 @@ export function createMeetCapturePanel(): MeetCapturePanelApi {
   const { title, minimizeBtn, panelContent, startBtn, stopBtn, refreshBtn, status } = createPanelDom(root)
 
   const selected = new Set<string>()
+  let latestUsersById = new Map<string, MeetUser>()
   const canvas = document.createElement('canvas')
   const ctx = canvas.getContext('2d')
 
@@ -210,6 +213,7 @@ export function createMeetCapturePanel(): MeetCapturePanelApi {
   }
 
   const renderUserList = (users: MeetUser[]) => {
+    latestUsersById = new Map(users.map((u) => [u.id, u]))
     const userListEl = document.getElementById('user-list')
     if (!userListEl) return
 
@@ -349,6 +353,9 @@ export function createMeetCapturePanel(): MeetCapturePanelApi {
     window.setInterval(updateUserList, 3000)
   }
 
-  return { start }
+  const getSelectedUserIds = () => Array.from(selected)
+  const getUserVideo = (userId: string) => latestUsersById.get(userId)?.video ?? null
+
+  return { start, getSelectedUserIds, getUserVideo }
 }
 

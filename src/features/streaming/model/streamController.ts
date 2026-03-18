@@ -21,6 +21,8 @@ export class StreamController {
   private userId: string
   private caption = createCaptionOverlay()
   private serverUrl: string
+  private frameTimers = new Map<string, number>()
+  private fps = 10
 
   constructor(options: StreamControllerOptions = {}) {
     this.userId = options.userId ?? getStableUserId()
@@ -65,6 +67,68 @@ export class StreamController {
       logger.warn('stream:ws:close:reconnect-soon')
       setTimeout(() => void this.connect(), 5000)
     }
+  }
+
+  // 선택된 사용자별로 프레임 전송을 시작합니다.
+  // JPEG로 인코딩해 10fps로 서버에 전송합니다.
+  startUserStreaming(userId: string, getVideo: () => HTMLVideoElement | null) {
+    if (this.frameTimers.has(userId)) return
+    if (!this.streamingServer || this.streamingServer.readyState !== WebSocket.OPEN) return
+
+    const intervalMs = Math.round(1000 / this.fps)
+    this.notifyServerOfStart(userId)
+
+    const timer = window.setInterval(() => {
+      const video = getVideo()
+      if (!video) return
+      void this.sendCurrentFrame(video, userId)
+    }, intervalMs)
+
+    this.frameTimers.set(userId, timer)
+    logger.debug('stream:frame:start', { userId, fps: this.fps })
+  }
+
+  // 사용자별 프레임 전송을 중지합니다.
+  // setInterval을 해제해 전송을 끝냅니다.
+  stopUserStreaming(userId: string) {
+    const timer = this.frameTimers.get(userId)
+    if (timer == null) return
+    clearInterval(timer)
+    this.frameTimers.delete(userId)
+    logger.debug('stream:frame:stop', { userId })
+  }
+
+  private notifyServerOfStart(userId: string) {
+    if (!this.streamingServer || this.streamingServer.readyState !== WebSocket.OPEN) return
+    this.streamingServer.send(
+      JSON.stringify({
+        type: 'start_stream',
+        userId,
+        fps: this.fps,
+        mimeType: 'image/jpeg',
+      }),
+    )
+  }
+
+  private async sendCurrentFrame(video: HTMLVideoElement, userId: string) {
+    if (!this.streamingServer || this.streamingServer.readyState !== WebSocket.OPEN) return
+    const width = video.videoWidth || video.clientWidth
+    const height = video.videoHeight || video.clientHeight
+    if (width <= 0 || height <= 0) return
+
+    const canvas = document.createElement('canvas')
+    canvas.width = width
+    canvas.height = height
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
+    ctx.drawImage(video, 0, 0, width, height)
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.7))
+    if (!blob) return
+    const buffer = await blob.arrayBuffer()
+
+    this.streamingServer.send(buffer)
+    logger.debug('stream:frame:sent', { userId, bytes: buffer.byteLength })
   }
 
   private handleServerMessage(message: ServerMessage) {

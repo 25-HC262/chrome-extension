@@ -1,5 +1,6 @@
 import { createCaptionOverlay } from '@/widgets/captionOverlay'
 import { logger } from '@/shared/lib/debug/logger'
+import { getStableUserId } from '@/shared/lib/user/getStableUserId'
 
 type StreamControllerOptions = {
   userId?: string
@@ -22,8 +23,9 @@ export class StreamController {
   private serverUrl: string
 
   constructor(options: StreamControllerOptions = {}) {
-    this.userId = options.userId ?? 'user_0'
+    this.userId = options.userId ?? getStableUserId()
     this.serverUrl = options.serverUrl ?? `ws://localhost:3000/stream?userId=${this.userId}`
+    logger.debug('stream:init', { userId: this.userId, serverUrl: this.serverUrl })
   }
 
   async connect() {

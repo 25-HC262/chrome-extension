@@ -2,7 +2,7 @@ const CHECK_INTERVAL_MINUTES = 1;
 
 class TtsController {
   constructor() {}
-  readCaption(text) {
+  readCaption(text: string) {
     if (!text || text.trim() === "") {
       console.log("TTS Controller: Text is empty, skipping read.");
       return;

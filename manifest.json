@@ -3,15 +3,8 @@
   "name": "Sign Translator",
   "version": "1.0.0",
   "description": "Sign translator for sign language user",
-  "host_permissions": [
-    "https://meet.google.com/*"
-  ],
-  "permissions": [
-    "activeTab",
-    "scripting",
-    "desktopCapture",
-    "storage"
-  ],
+  "host_permissions": ["https://meet.google.com/*"],
+  "permissions": ["activeTab", "scripting", "desktopCapture", "storage", "tts"],
   "background": {
     "service_worker": "src/app/background.ts",
     "type": "module"

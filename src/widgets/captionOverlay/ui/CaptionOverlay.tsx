@@ -27,18 +27,26 @@ function ensureScriptBoxEl(): HTMLElement {
   return el;
 }
 
-// 화면 하단에 캡션 오버레이와 기록 박스를 생성합니다.
-// 캡션 텍스트를 갱신할 수 있는 API를 반환합니다.
+// 화면 하단에 캡션 오버레이와 기록 박스를 생성
 export function createCaptionOverlay(): CaptionOverlayApi {
   const captionEl = ensureCaptionEl();
   const scriptBoxEl = ensureScriptBoxEl();
   const script: string[] = [];
 
   let lastSpokenText = "";
+  let clearTimer: number | null = null;
+
   const setText = (text: string) => {
     captionEl.textContent = text;
+
+    if (clearTimer) {
+      clearTimeout(clearTimer);
+      clearTimer = null;
+    }
+
     if (text && text.trim() !== "" && text !== lastSpokenText) {
       lastSpokenText = text;
+      appendScriptLine(text);
       chrome.runtime.sendMessage(
         {
           action: "readCaption",
@@ -54,6 +62,12 @@ export function createCaptionOverlay(): CaptionOverlayApi {
         },
       );
     }
+
+    // 3초 이후 자막 삭제 
+    clearTimer = window.setTimeout(() => {
+      captionEl.textContent = "";
+      clearTimer = null;
+    }, 3000);
   };
 
   const appendScriptLine = (text: string) => {

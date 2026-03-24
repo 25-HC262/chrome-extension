@@ -1,10 +1,9 @@
 // src/app.js
-import panelController from './controllers/panelController.js';
-import captionController from './controllers/captionController.js';
-import streamController from './controllers/streamController.js';
-import userController from './controllers/userController.js';
-import videoController from './controllers/videoController.js';
-
+import panelController from "./controllers/panelController.js";
+import captionController from "./controllers/captionController.js";
+import { StreamController } from "./features/streaming/model/streamController.ts";
+import userController from "./controllers/userController.js";
+import videoController from "./controllers/videoController.js";
 
 // const panelController = require('./controllers/panelController.js');
 // const captionController = require('./controllers/captionController.js');
@@ -12,7 +11,7 @@ import videoController from './controllers/videoController.js';
 // const userController = require('./controllers/userController.js');
 // const videoController = require('./controllers/videoController.js');
 
-
+const streamController = new StreamController();
 class MeetUserCaptureApp {
   constructor() {
     // this.panelController = panelController;
@@ -20,7 +19,6 @@ class MeetUserCaptureApp {
     // this.streamController = streamController;
     // this.userController = userController;
     // this.videoController = videoController;
-    
     // this.setupListeners();
   }
 
@@ -32,7 +30,7 @@ class MeetUserCaptureApp {
     // this.userController.startUserDetection();
     // this.streamController.connectToStreamingServer();
     panelController.createControlPanel();
-    captionController.createCaption();
+    captionController.createCaption();
     // chrome.runtime.sendMessage({
     //     action: "readCaption",
     //     captionText: "이것을 읽어주세요"
@@ -42,10 +40,10 @@ class MeetUserCaptureApp {
     // }).catch(error => {
     //     console.error("메시지 전송 오류:", error);
     // });
-    videoController.setupCanvas();
-    userController.startUserDetection();
-    streamController.connectToStreamingServer();
-    console.log('Meet User Capture Extension initialized');
+    videoController.setupCanvas();
+    userController.startUserDetection();
+    streamController.connect();
+    console.log("Meet User Capture Extension initialized");
   }
   /*
   // 사용자 목록 업데이트 (UI)
@@ -117,30 +115,30 @@ class MeetUserCaptureApp {
 const app = new MeetUserCaptureApp();
 
 const startApp = () => {
-    const observer = new MutationObserver((mutations, obs) => {
-        userController.detectUsers();
-        userController.addUserSelectButton();
-    });
+  const observer = new MutationObserver((mutations, obs) => {
+    userController.detectUsers();
+    userController.addUserSelectButton();
+  });
 
-    observer.observe(document.body, {
-        childList: true,
-        subtree: true,
-    });
+  observer.observe(document.body, {
+    childList: true,
+    subtree: true,
+  });
 
-    app.init();
-    console.log("@#@# app을 실행했습니다")
-}
+  app.init();
+  console.log("@#@# app을 실행했습니다");
+};
 
 // 확장 프로그램 실행
-if (window.location.href.includes('landing')) {
-    console.log("Main page : video is not displayed");
+if (window.location.href.includes("landing")) {
+  console.log("Main page : video is not displayed");
 } else {
-    try {
-        startApp();
-        // setInterval(() => {
-        //   runCaptionSequence();
-        // }, 3000);
-    } catch (error) {
-        console.error('Extension initialization error:', error);
-    }
+  try {
+    startApp();
+    // setInterval(() => {
+    //   runCaptionSequence();
+    // }, 3000);
+  } catch (error) {
+    console.error("Extension initialization error:", error);
+  }
 }

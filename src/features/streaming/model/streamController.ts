@@ -6,7 +6,7 @@ import { logger } from "@/shared/lib/debug/logger";
  * 내 ID와 섞이지 않도록 전용 스토리지 키를 사용합니다.
  */
 function getTargetRandomId(meetId: string): string {
-  const meetingKey = window.location.pathname.replace(/\//g, '_');
+  const meetingKey = window.location.pathname.replace(/\//g, "_");
   // 내 ID용 키인 'st_user_id'와 겹치지 않게 'target_map' 키를 사용
   const storageKey = `st_target_map__${meetingKey}__${meetId}`;
 
@@ -26,10 +26,10 @@ function getTargetRandomId(meetId: string): string {
 export class StreamController {
   private streamingServer: WebSocket | null = null;
   private targetRandomId: string; // 상대방을 식별하는 난수 ID
-  private meetId: string;         // 구글 미트 내부 ID (Nl0j0e 등)
+  private meetId: string; // 구글 미트 내부 ID (Nl0j0e 등)
   private caption = createCaptionOverlay();
   private serverUrl: string;
-  
+
   private frameTimer: number | null = null;
   private canvas: HTMLCanvasElement | null = null;
   private ctx: CanvasRenderingContext2D | null = null;
@@ -37,11 +37,9 @@ export class StreamController {
 
   constructor(meetId: string) {
     this.meetId = meetId;
-    // 1. Meet ID를 기반으로 상대방 전용 난수 ID 획득
     this.targetRandomId = getTargetRandomId(meetId);
-    
-    // 2. 이 난수 ID가 이 소켓 연결의 주인이 됨
-    this.serverUrl = `ws://localhost:3000/stream?userId=${this.targetRandomId}`;
+    // this.serverUrl = `ws://localhost:3000/stream?userId=${this.targetRandomId}`;
+    this.serverUrl = `https://streaming-server-648489943292.asia-northeast3.run.app/stream?userId=${this.targetRandomId}`;
   }
 
   async connect() {
@@ -53,11 +51,11 @@ export class StreamController {
 
       this.streamingServer.onopen = () => {
         // [확인] 여기서 찍히는 targetRandomId가 내 ID와 달라야 합니다.
-        logger.debug("stream:ws:open", { 
-          meetId: this.meetId, 
-          target: this.targetRandomId 
+        logger.debug("stream:ws:open", {
+          meetId: this.meetId,
+          target: this.targetRandomId,
         });
-        
+
         this.sendSubscribeMessage(this.targetRandomId);
         this.notifyServerOfStart();
       };
@@ -85,7 +83,12 @@ export class StreamController {
 
     this.frameTimer = window.setInterval(async () => {
       const video = getVideo();
-      if (!video || !this.streamingServer || this.streamingServer.readyState !== WebSocket.OPEN) return;
+      if (
+        !video ||
+        !this.streamingServer ||
+        this.streamingServer.readyState !== WebSocket.OPEN
+      )
+        return;
 
       await this.sendCurrentFrame(video);
     }, 1000 / this.fps);
@@ -100,19 +103,23 @@ export class StreamController {
   }
 
   private notifyServerOfStart() {
-    this.streamingServer?.send(JSON.stringify({
-      type: "start_stream",
-      userId: this.targetRandomId,
-      mimeType: "image/jpeg",
-    }));
+    this.streamingServer?.send(
+      JSON.stringify({
+        type: "start_stream",
+        userId: this.targetRandomId,
+        mimeType: "image/jpeg",
+      }),
+    );
   }
 
   private sendStopStream() {
     if (this.streamingServer?.readyState === WebSocket.OPEN) {
-      this.streamingServer.send(JSON.stringify({ 
-        type: "stop_stream", 
-        userId: this.targetRandomId 
-      }));
+      this.streamingServer.send(
+        JSON.stringify({
+          type: "stop_stream",
+          userId: this.targetRandomId,
+        }),
+      );
     }
   }
 
@@ -121,7 +128,11 @@ export class StreamController {
     const height = video.videoHeight || video.clientHeight;
     if (width <= 0 || height <= 0) return;
 
-    if (!this.canvas || this.canvas.width !== width || this.canvas.height !== height) {
+    if (
+      !this.canvas ||
+      this.canvas.width !== width ||
+      this.canvas.height !== height
+    ) {
       this.canvas = document.createElement("canvas");
       this.canvas.width = width;
       this.canvas.height = height;
@@ -129,20 +140,30 @@ export class StreamController {
     }
 
     this.ctx?.drawImage(video, 0, 0, width, height);
-    const blob = await new Promise<Blob | null>(res => this.canvas!.toBlob(res, "image/jpeg", 0.7));
+    const blob = await new Promise<Blob | null>((res) =>
+      this.canvas!.toBlob(res, "image/jpeg", 0.7),
+    );
     if (!blob) return;
 
     const buffer = await blob.arrayBuffer();
-    const payload = this.packFrameWithUserId(this.targetRandomId, new Uint8Array(buffer));
+    const payload = this.packFrameWithUserId(
+      this.targetRandomId,
+      new Uint8Array(buffer),
+    );
     this.streamingServer?.send(payload);
   }
 
-  private packFrameWithUserId(userId: string, jpegBytes: Uint8Array): ArrayBuffer {
+  private packFrameWithUserId(
+    userId: string,
+    jpegBytes: Uint8Array,
+  ): ArrayBuffer {
     const userIdBytes = new TextEncoder().encode(userId);
     const header = new ArrayBuffer(4);
     new DataView(header).setUint32(0, userIdBytes.byteLength, false);
 
-    const out = new Uint8Array(4 + userIdBytes.byteLength + jpegBytes.byteLength);
+    const out = new Uint8Array(
+      4 + userIdBytes.byteLength + jpegBytes.byteLength,
+    );
     out.set(new Uint8Array(header), 0);
     out.set(userIdBytes, 4);
     out.set(jpegBytes, 4 + userIdBytes.byteLength);
@@ -154,7 +175,9 @@ export class StreamController {
       this.caption.setText(message.message);
     } else if (message.type === "model_response") {
       this.caption.setText(message.text);
-      this.caption.appendScriptLine(message.userId ? `[${message.userId}] ${message.text}` : message.text);
+      this.caption.appendScriptLine(
+        message.userId ? `[${message.userId}] ${message.text}` : message.text,
+      );
     }
   }
 

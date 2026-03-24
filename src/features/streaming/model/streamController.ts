@@ -33,7 +33,8 @@ export class StreamController {
     // 스트리밍 서버 URL에 userId를 실제로 삽입합니다.
     // 따옴표 실수로 템플릿이 깨지지 않도록 백틱을 사용합니다.
     this.serverUrl =
-      options.serverUrl ?? `ws://localhost:3000/stream?userId=${this.userId}`;
+      options.serverUrl ??
+      `https://streaming-server-648489943292.asia-northeast3.run.app/stream?userId=${this.userId}`;
   }
 
   async connect() {
@@ -107,6 +108,7 @@ export class StreamController {
   }
 
   private notifyServerOfStart(userId: string) {
+    console.log("@@ 패킷 전송", userId);
     if (
       !this.streamingServer ||
       this.streamingServer.readyState !== WebSocket.OPEN
@@ -123,6 +125,7 @@ export class StreamController {
   }
 
   private sendStopStream(userId: string) {
+    console.log("@@ 패킷 전송 중지", userId);
     if (
       !this.streamingServer ||
       this.streamingServer.readyState !== WebSocket.OPEN

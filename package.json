@@ -1,15 +1,21 @@
 {
-  "dependencies": {
-    "@googleworkspace/meet-addons": "^1.2.0"
-  },
-  "devDependencies": {
-    "copy-webpack-plugin": "^13.0.1",
-    "webpack": "^5.101.3",
-    "webpack-cli": "^6.0.1"
-  },
-  "type": "module",
+  "name": "chrome-extension",
+  "version": "1.0.0",
+  "description": "",
+  "private": true,
   "scripts": {
-    "build": "webpack --mode production",
-    "start": "node src/index.js"
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.28.2",
+  "devDependencies": {
+    "@crxjs/vite-plugin": "^2.0.0",
+    "@types/chrome": "^0.1.38",
+    "vite": "^7.3.1"
   }
 }

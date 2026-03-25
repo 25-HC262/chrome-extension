@@ -50,7 +50,6 @@ export class StreamController {
       this.streamingServer.binaryType = "arraybuffer";
 
       this.streamingServer.onopen = () => {
-        // [확인] 여기서 찍히는 targetRandomId가 내 ID와 달라야 합니다.
         logger.debug("stream:ws:open", {
           meetId: this.meetId,
           target: this.targetRandomId,
@@ -175,7 +174,8 @@ export class StreamController {
       this.caption.setText(message.message);
     } else if (message.type === "model_response") {
       this.caption.setText(message.text);
-      this.caption.appendScriptLine(
+      this.caption.appendScriptLine(message.text);
+      console.log(
         message.userId ? `[${message.userId}] ${message.text}` : message.text,
       );
     }

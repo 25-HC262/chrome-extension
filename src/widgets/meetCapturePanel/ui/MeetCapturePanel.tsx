@@ -61,11 +61,11 @@ const extractParticipantId = (
     if (dataId) return dataId;
   }
 
-  const videoId =
-    video.getAttribute("data-participant-id") ||
-    video.id ||
-    (typeof video.className === "string" ? video.className : "");
-  return videoId || `user_${index}`;
+  if (video.src && video.src.startsWith("blob:")) {
+    return video.src.split("/").pop() || `stream_${index}`;
+  }
+
+  return video.id || `v_idx_${index}`;
 };
 
 // 이름 뒤의 '님'이나 '(나)' 등 제거
@@ -148,12 +148,13 @@ function detectUsers(): MeetUser[] {
 
   videoElements.forEach((video, index) => {
     const container = video.closest(
-      "[data-participant-id], [data-allocation-index], [jsname], .JNuryc, .p2P_9b, .Gv7Sce",
+      ".Gv7Sce, .JNuryc, .p2P_9b, [data-participant-id]",
     );
     const id = extractParticipantId(container, video, index);
     const name = extractUserName(video);
     const videoSize = `${video.videoWidth || video.clientWidth}x${video.videoHeight || video.clientHeight}`;
     const type = determineVideoType(video);
+
     users.push({ id, name, video, videoSize, type });
   });
 
@@ -317,7 +318,8 @@ export function createMeetCapturePanel(): MeetCapturePanelApi {
 
       const checkbox = document.createElement("input");
       checkbox.type = "checkbox";
-      checkbox.id = `user-${user.id}`;
+      const htmlId = `capture-chk-${user.id.replace(/[^a-zA-Z0-9]/g, "_")}`;
+      checkbox.id = htmlId;
       checkbox.checked = selected.has(user.id);
       if (isCapturing) checkbox.disabled = true;
 
@@ -331,7 +333,7 @@ export function createMeetCapturePanel(): MeetCapturePanelApi {
       );
 
       const label = document.createElement("label");
-      label.htmlFor = `user-${user.id}`;
+      label.htmlFor = htmlId;
       label.className = "user-label";
 
       const displayName = user.name || `알 수 없는 참가자 (${idx + 1})`;

@@ -33,7 +33,10 @@ export class StreamController {
   private frameTimer: number | null = null;
   private canvas: HTMLCanvasElement | null = null;
   private ctx: CanvasRenderingContext2D | null = null;
-  private fps = 10;
+  // private fps = 10;
+
+  private isStreaming = false;
+  private requestIds: number[] = [];
 
   constructor(meetId: string) {
     this.meetId = meetId;
@@ -79,25 +82,39 @@ export class StreamController {
 
   startStreaming(getVideo: () => HTMLVideoElement | null) {
     if (this.frameTimer) return;
+    this.isStreaming = true;
 
-    this.frameTimer = window.setInterval(async () => {
+    const loop = async () => {
+      if (!this.isStreaming) return;
+
       const video = getVideo();
-      if (
-        !video ||
-        !this.streamingServer ||
-        this.streamingServer.readyState !== WebSocket.OPEN
-      )
-        return;
 
-      await this.sendCurrentFrame(video);
-    }, 1000 / this.fps);
+      if (
+        video &&
+        !video.paused &&
+        !video.ended &&
+        this.streamingServer?.readyState === WebSocket.OPEN
+      ) {
+        await this.sendCurrentFrame(video);
+      }
+
+      this.requestIds.push(window.requestAnimationFrame(loop));
+    };
+
+    this.requestIds.push(window.requestAnimationFrame(loop));
   }
 
   stopStreaming() {
+    this.isStreaming = false;
+
+    this.requestIds.forEach((id) => window.cancelAnimationFrame(id));
+    this.requestIds = [];
+
     if (this.frameTimer) {
       clearInterval(this.frameTimer);
       this.frameTimer = null;
     }
+
     this.sendStopStream();
   }
 
@@ -173,6 +190,8 @@ export class StreamController {
     if (message.type === "info") {
       this.caption.setText(message.message);
     } else if (message.type === "model_response") {
+      if (!this.isStreaming) return;
+
       this.caption.setText(message.text);
       this.caption.appendScriptLine(message.text);
       console.log(

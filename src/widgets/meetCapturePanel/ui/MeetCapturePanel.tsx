@@ -274,13 +274,30 @@ export function createMeetCapturePanel(): MeetCapturePanelApi {
   } = createPanelDom(root);
 
   const selected = new Set<string>();
+  const nameMap = new Map<string, string>();
   let latestUsersById = new Map<string, MeetUser>();
   let isCapturing = false;
 
   // API 객체 정의
   const api: MeetCapturePanelApi = {
     start: () => {
-      const update = () => renderUserList(detectUsers());
+      const update = () => {
+        const detectedUsers = detectUsers();
+
+        detectedUsers.forEach((user) => {
+          const cachedName = nameMap.get(user.id);
+
+          if (user.name && user.name.length >= 2) {
+            nameMap.set(user.id, user.name);
+          } else if (!cachedName && user.name) {
+            nameMap.set(user.id, user.name);
+          }
+
+          user.name = nameMap.get(user.id) || user.name;
+        });
+
+        renderUserList(detectedUsers);
+      };
       update();
       window.setInterval(update, 3000);
     },

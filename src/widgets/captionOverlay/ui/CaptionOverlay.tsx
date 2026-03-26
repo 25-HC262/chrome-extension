@@ -3,6 +3,7 @@ import "./CaptionOverlay.css";
 type CaptionOverlayApi = {
   setText: (text: string) => void;
   appendScriptLine: (text: string) => void;
+  setVisibility: (visible: boolean) => void;
 };
 
 function ensureCaptionEl(): HTMLElement {
@@ -23,6 +24,7 @@ function ensureScriptBoxEl(): HTMLElement {
   const el = document.createElement("div");
   el.id = "caption-script";
   el.textContent = "";
+  el.style.display = "block";
   document.body.appendChild(el);
   return el;
 }
@@ -63,7 +65,7 @@ export function createCaptionOverlay(): CaptionOverlayApi {
       );
     }
 
-    // 3초 이후 자막 삭제 
+    // 3초 이후 자막 삭제
     clearTimer = window.setTimeout(() => {
       captionEl.textContent = "";
       clearTimer = null;
@@ -76,5 +78,9 @@ export function createCaptionOverlay(): CaptionOverlayApi {
     scriptBoxEl.scrollTop = scriptBoxEl.scrollHeight;
   };
 
-  return { setText, appendScriptLine };
+  const setVisibility = (visible: boolean) => {
+    scriptBoxEl.style.display = visible ? "block" : "none";
+  };
+
+  return { setText, appendScriptLine, setVisibility };
 }

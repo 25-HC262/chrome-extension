@@ -15,6 +15,7 @@ export type MeetCapturePanelApi = {
   getUserVideo: (userId: string) => HTMLVideoElement | null;
   onStart?: (selectedIds: string[]) => void;
   onStop?: () => void;
+  onScriptToggle?: (enabled: boolean) => void;
 };
 
 /**
@@ -157,6 +158,16 @@ function createPanelDom(root: HTMLElement) {
   const panelContent = document.createElement("div");
   panelContent.className = "meet-capture-panel-content";
 
+  const scriptToggleContainer = document.createElement("div");
+  scriptToggleContainer.style.padding = "10px 15px";
+  scriptToggleContainer.style.borderBottom = "1px solid #eee";
+  scriptToggleContainer.innerHTML = `
+    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px;">
+      <input type="checkbox" id="script-visible-checkbox" checked>
+      자막 스크립트 표시
+    </label>
+  `;
+
   const userListContainer = document.createElement("div");
   userListContainer.className = "user-list-container";
   userListContainer.innerHTML = `
@@ -185,7 +196,12 @@ function createPanelDom(root: HTMLElement) {
   status.textContent = "대기 중";
 
   controls.append(startBtn, stopBtn, refreshBtn);
-  panelContent.append(userListContainer, controls, status);
+  panelContent.append(
+    scriptToggleContainer,
+    userListContainer,
+    controls,
+    status,
+  );
   root.append(title, panelContent);
 
   return {
@@ -196,6 +212,9 @@ function createPanelDom(root: HTMLElement) {
     stopBtn,
     refreshBtn,
     status,
+    scriptCheckbox: scriptToggleContainer.querySelector(
+      "#script-visible-checkbox",
+    ) as HTMLInputElement,
   };
 }
 
@@ -212,6 +231,7 @@ export function createMeetCapturePanel(): MeetCapturePanelApi {
     stopBtn,
     refreshBtn,
     status,
+    scriptCheckbox,
   } = createPanelDom(root);
 
   const selected = new Set<string>();
@@ -230,12 +250,23 @@ export function createMeetCapturePanel(): MeetCapturePanelApi {
       latestUsersById.get(userId)?.video ?? null,
   };
 
+  // const updateStatus = (message: string, capturing: boolean) => {
+  //   status.textContent = message;
+  //   status.className = capturing ? "status-capturing" : "status-idle";
+  // };
+
+  // 스크립트 토글 이벤트
+  scriptCheckbox.addEventListener("change", (e) => {
+    const isChecked = (e.target as HTMLInputElement).checked;
+    api.onScriptToggle?.(isChecked);
+  });
+
   const updateStatus = (message: string, capturing: boolean) => {
     status.textContent = message;
     status.className = capturing ? "status-capturing" : "status-idle";
+    status.style.background = capturing ? "#e8f5e9" : "#f1f3f4";
   };
 
-  // 목록 렌더링 함수
   const renderUserList = (users: MeetUser[]) => {
     latestUsersById = new Map(users.map((u) => [u.id, u]));
     const userListEl = document.getElementById("user-list");

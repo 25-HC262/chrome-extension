@@ -10,16 +10,19 @@ export function bootstrapContent() {
   try {
     const caption = createCaptionOverlay();
     caption.setText("");
-    
+
     const panel = createMeetCapturePanel();
     panel.start();
+
+    panel.onScriptToggle = (enabled: boolean) => {
+      caption.setVisibility(enabled);
+    };
 
     // 활성화된 스트림 컨트롤러 인스턴스 보관함
     const controllers = new Map<string, StreamController>();
 
     /**
-     * [핵심] 캡처 시작 버튼을 눌렀을 때 실행되는 콜백
-     * 체크박스에 체크된 ID들을 받아와서 스트리밍을 한꺼번에 시작합니다.
+     * 체크박스에 체크된 ID들을 받아와서 스트리밍을 한꺼번에 시작
      */
     (panel as any).onStart = (selectedIds: string[]) => {
       logger.info("bootstrap:capture_start_clicked", { selectedIds });
@@ -29,7 +32,7 @@ export function bootstrapContent() {
           logger.debug("bootstrap:starting_stream", { meetId });
 
           const stream = new StreamController(meetId);
-          
+
           // 연결 후 스트리밍 시작
           void stream.connect().then(() => {
             stream.startStreaming(() => panel.getUserVideo(meetId));
@@ -41,7 +44,6 @@ export function bootstrapContent() {
     };
 
     /**
-     * [핵심] 캡처 중지 버튼을 눌렀을 때 실행되는 콜백
      * 현재 동작 중인 모든 스트림을 중단하고 목록에서 삭제합니다.
      */
     (panel as any).onStop = () => {
@@ -52,11 +54,10 @@ export function bootstrapContent() {
         controller.stopStreaming();
         controllers.delete(meetId);
       }
-      
+
       // 혹시 남아있을지 모를 모든 컨트롤러 강제 종료 및 비우기
       controllers.clear();
     };
-
   } catch (error) {
     logger.error("bootstrap:failed", error);
   }

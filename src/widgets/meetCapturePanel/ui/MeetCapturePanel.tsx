@@ -68,25 +68,62 @@ const extractParticipantId = (
   return videoId || `user_${index}`;
 };
 
+// 이름 뒤의 '님'이나 '(나)' 등 제거
+function cleanName(name: string): string {
+  return name
+    .replace(/님$/, "")
+    .replace(/\(나\)$/, "")
+    .replace(/\(Presentation\)$/i, "")
+    .replace(/\(발표\)$/, "")
+    .trim();
+}
+
+function isValidName(text: string | null): boolean {
+  if (!text) return false;
+  const t = text.trim();
+  if (t.length < 2 || t.length > 30) return false;
+  if (/^\d+$/.test(t)) return false;
+  if (t.includes(":") || t.includes("http")) return false; 
+  const wordCount = t.split(/\s+/).filter(word => word.length > 0).length;
+  if (wordCount > 3) return false;
+  return true;
+}
+
 /**
  * 참가자 이름 추출 함수
  */
-const extractUserName = (container: Element | null): string | null => {
-  if (!container) return null;
+const extractUserName = (video: HTMLVideoElement): string | null => {
+  if (!video) return null;
 
-  const nameSelectors = [
-    "[data-self-name]",
-    '[aria-label*="님"]',
-    ".zWGUib",
-    ".VfPpkd-Bz112c",
-    'div[role="button"][aria-label]',
-  ];
-  for (const selector of nameSelectors) {
-    const el = container.querySelector(selector) as HTMLElement | null;
-    if (!el) continue;
-    const name = el.textContent || el.getAttribute("aria-label");
-    if (name && name.trim()) return name.replace(/님$/, "").trim();
+  const rect = video.getBoundingClientRect();
+
+  const x = rect.left + 20;
+  const y = rect.bottom - 20;
+  const elementsAtPoint = document.elementsFromPoint(x, y);
+
+  for (const el of elementsAtPoint) {
+    const text = el.textContent?.trim();
+    if (text && isValidName(text)) {
+      return cleanName(text);
+    }
   }
+
+  let parent = video.parentElement;
+  let depth = 0;
+  while (parent && depth < 5) {
+    const names = parent.querySelectorAll(
+      ".MJ4T8e, .zWGUib, span.notranslate, div[role='heading']",
+    );
+    for (const nameEl of Array.from(names)) {
+      if (nameEl.textContent?.trim()) {
+        const n = cleanName(nameEl.textContent);
+        if (isValidName(n)) return n;
+      }
+    }
+    parent = parent.parentElement;
+    depth++;
+  }
+
   return null;
 };
 
@@ -111,10 +148,10 @@ function detectUsers(): MeetUser[] {
 
   videoElements.forEach((video, index) => {
     const container = video.closest(
-      "[data-participant-id], [data-allocation-index], [jsname]",
+      "[data-participant-id], [data-allocation-index], [jsname], .JNuryc, .p2P_9b, .Gv7Sce",
     );
     const id = extractParticipantId(container, video, index);
-    const name = extractUserName(container);
+    const name = extractUserName(video);
     const videoSize = `${video.videoWidth || video.clientWidth}x${video.videoHeight || video.clientHeight}`;
     const type = determineVideoType(video);
     users.push({ id, name, video, videoSize, type });
@@ -187,15 +224,16 @@ function createPanelDom(root: HTMLElement) {
   stopBtn.textContent = "캡처 중지";
   stopBtn.disabled = true;
 
-  const refreshBtn = document.createElement("button");
-  refreshBtn.textContent = "새로고침";
+  // const refreshBtn = document.createElement("button");
+  // refreshBtn.textContent = "새로고침";
 
   const status = document.createElement("div");
   status.id = "capture-status";
   status.className = "status-idle";
   status.textContent = "대기 중";
 
-  controls.append(startBtn, stopBtn, refreshBtn);
+  // controls.append(startBtn, stopBtn, refreshBtn);
+  controls.append(startBtn, stopBtn);
   panelContent.append(
     scriptToggleContainer,
     userListContainer,
@@ -210,7 +248,7 @@ function createPanelDom(root: HTMLElement) {
     panelContent,
     startBtn,
     stopBtn,
-    refreshBtn,
+    // refreshBtn,
     status,
     scriptCheckbox: scriptToggleContainer.querySelector(
       "#script-visible-checkbox",
@@ -229,7 +267,7 @@ export function createMeetCapturePanel(): MeetCapturePanelApi {
     panelContent,
     startBtn,
     stopBtn,
-    refreshBtn,
+    // refreshBtn,
     status,
     scriptCheckbox,
   } = createPanelDom(root);
@@ -249,11 +287,6 @@ export function createMeetCapturePanel(): MeetCapturePanelApi {
     getUserVideo: (userId: string) =>
       latestUsersById.get(userId)?.video ?? null,
   };
-
-  // const updateStatus = (message: string, capturing: boolean) => {
-  //   status.textContent = message;
-  //   status.className = capturing ? "status-capturing" : "status-idle";
-  // };
 
   // 스크립트 토글 이벤트
   scriptCheckbox.addEventListener("change", (e) => {
@@ -300,12 +333,15 @@ export function createMeetCapturePanel(): MeetCapturePanelApi {
       const label = document.createElement("label");
       label.htmlFor = `user-${user.id}`;
       label.className = "user-label";
+
+      const displayName = user.name || `알 수 없는 참가자 (${idx + 1})`;
+
       label.innerHTML = `
-        <div class="user-info">
-          <div>${user.name || `참가자 ${idx + 1}`}</div>
-          <div class="user-info-details">${user.videoSize} • ${user.type}</div>
-        </div>
-      `;
+      <div class="user-info">
+        <div class="user-name">${displayName}</div>
+        <div class="user-info-details">${user.videoSize} • ${user.type}</div>
+      </div>
+    `;
 
       userItem.append(checkbox, label);
       userListEl.appendChild(userItem);
@@ -318,7 +354,7 @@ export function createMeetCapturePanel(): MeetCapturePanelApi {
     isCapturing = true;
     startBtn.disabled = true;
     stopBtn.disabled = false;
-    updateStatus(`${selected.size}명 캡처 중...`, true);
+    updateStatus(`캡처 중...`, true);
     if (api.onStart) api.onStart(Array.from(selected));
     renderUserList(detectUsers());
   });
@@ -332,7 +368,7 @@ export function createMeetCapturePanel(): MeetCapturePanelApi {
     renderUserList(detectUsers());
   });
 
-  refreshBtn.addEventListener("click", () => renderUserList(detectUsers()));
+  // refreshBtn.addEventListener("click", () => renderUserList(detectUsers()));
 
   // 최소화/최대화
   minimizeBtn.addEventListener("click", () => {

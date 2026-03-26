@@ -83,9 +83,9 @@ function isValidName(text: string | null): boolean {
   const t = text.trim();
   if (t.length < 2 || t.length > 30) return false;
   if (/^\d+$/.test(t)) return false;
-  if (t.includes(":") || t.includes("http")) return false; 
-  const wordCount = t.split(/\s+/).filter(word => word.length > 0).length;
-  if (wordCount > 3) return false;
+  if (t.includes(":") || t.includes("http")) return false;
+  const wordCount = t.split(/\s+/).filter((word) => word.length > 0).length;
+  if (wordCount > 2) return false;
   return true;
 }
 

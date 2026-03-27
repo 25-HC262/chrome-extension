@@ -22,26 +22,17 @@ export type MeetCapturePanelApi = {
  * 비디오 엘리먼트 탐색 함수
  */
 const findAllVideoElements = (): HTMLVideoElement[] => {
-  const selectors = [
-    "video[autoplay]",
-    'video[src*="blob:"]',
-    "[data-allocation-index] video",
-    "div[data-participant-id] video",
-    'video:not([src=""])',
-    "[jsname] video",
-  ];
-
-  const videos = selectors.flatMap((selector) =>
-    qsa<HTMLVideoElement>(selector),
+  const videos = Array.from(
+    document.querySelectorAll<HTMLVideoElement>("[data-participant-id] video"),
   );
 
-  return videos.filter((video, idx, self) => {
-    const unique = self.indexOf(video) === idx;
+  return videos.filter((video) => {
     const ready = video.readyState >= 2;
     const hasSize =
       (video.videoWidth > 0 || video.clientWidth > 0) &&
       (video.videoHeight > 0 || video.clientHeight > 0);
-    return unique && ready && hasSize;
+
+    return ready && hasSize;
   });
 };
 
@@ -54,28 +45,34 @@ const extractParticipantId = (
   index: number,
 ): string => {
   if (container) {
-    const dataId =
-      container.getAttribute("data-participant-id") ||
-      container.getAttribute("data-allocation-index") ||
-      container.getAttribute("jsname");
-    if (dataId) return dataId;
+    const id = container.getAttribute("data-participant-id");
+    if (id) return id;
   }
 
+  // fallback
   if (video.src && video.src.startsWith("blob:")) {
     return video.src.split("/").pop() || `stream_${index}`;
   }
 
-  return video.id || `v_idx_${index}`;
+  return `v_${index}`;
 };
 
 // 이름 뒤의 '님'이나 '(나)' 등 제거
 function cleanName(name: string): string {
-  return name
+  let n = name
     .replace(/님$/, "")
     .replace(/\(나\)$/, "")
     .replace(/\(Presentation\)$/i, "")
     .replace(/\(발표\)$/, "")
     .trim();
+
+  // duplicate name fix
+  const half = Math.floor(n.length / 2);
+  if (n.slice(0, half) === n.slice(half)) {
+    n = n.slice(0, half);
+  }
+
+  return n;
 }
 
 function isValidName(text: string | null): boolean {
@@ -93,38 +90,21 @@ function isValidName(text: string | null): boolean {
  * 참가자 이름 추출 함수
  */
 const extractUserName = (video: HTMLVideoElement): string | null => {
-  if (!video) return null;
+  const container = video.closest("[data-participant-id]");
+  if (!container) return null;
 
-  const rect = video.getBoundingClientRect();
+  // 가장 정확한 selector
+  const nameEl =
+    container.querySelector("span.notranslate") ||
+    container.querySelector('[role="heading"]') ||
+    container.querySelector(".zWGUib");
 
-  const x = rect.left + 20;
-  const y = rect.bottom - 20;
-  const elementsAtPoint = document.elementsFromPoint(x, y);
+  if (!nameEl) return null;
 
-  for (const el of elementsAtPoint) {
-    const text = el.textContent?.trim();
-    if (text && isValidName(text)) {
-      return cleanName(text);
-    }
-  }
+  const text = nameEl.textContent?.trim();
+  if (!text) return null;
 
-  let parent = video.parentElement;
-  let depth = 0;
-  while (parent && depth < 5) {
-    const names = parent.querySelectorAll(
-      ".MJ4T8e, .zWGUib, span.notranslate, div[role='heading']",
-    );
-    for (const nameEl of Array.from(names)) {
-      if (nameEl.textContent?.trim()) {
-        const n = cleanName(nameEl.textContent);
-        if (isValidName(n)) return n;
-      }
-    }
-    parent = parent.parentElement;
-    depth++;
-  }
-
-  return null;
+  return cleanName(text);
 };
 
 /**
@@ -144,18 +124,29 @@ const determineVideoType = (video: HTMLVideoElement): string => {
  */
 function detectUsers(): MeetUser[] {
   const users: MeetUser[] = [];
-  const videoElements = findAllVideoElements();
+  const seen = new Set<string>();
 
-  videoElements.forEach((video, index) => {
-    const container = video.closest(
-      ".Gv7Sce, .JNuryc, .p2P_9b, [data-participant-id]",
-    );
+  const videos = findAllVideoElements();
+
+  videos.forEach((video, index) => {
+    const container = video.closest("[data-participant-id]");
     const id = extractParticipantId(container, video, index);
+
+    if (seen.has(id)) return;
+    seen.add(id);
+
     const name = extractUserName(video);
+
     const videoSize = `${video.videoWidth || video.clientWidth}x${video.videoHeight || video.clientHeight}`;
     const type = determineVideoType(video);
 
-    users.push({ id, name, video, videoSize, type });
+    users.push({
+      id,
+      name,
+      video,
+      videoSize,
+      type,
+    });
   });
 
   return users;
